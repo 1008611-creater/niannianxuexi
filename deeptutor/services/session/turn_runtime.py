@@ -1362,6 +1362,14 @@ class TurnRuntimeManager:
             )
             memory_store = get_memory_store()
             memory_context = memory_store.read_l3_concat() if memory_references else ""
+            # A parent-owned learner profile is an orchestration hint, not a
+            # curriculum package. Keep it compact and inject it server-side so
+            # chat, photo, and file turns use the same child context.
+            from deeptutor.services.learner_profile import context_summary
+
+            learner_context = context_summary()
+            if learner_context:
+                memory_context = (memory_context + "\n" + learner_context).strip()
 
             # Persona: at most one behaviour preset per turn, eagerly
             # injected (a persona must shape the voice from the first

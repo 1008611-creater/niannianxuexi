@@ -246,6 +246,15 @@ async def realtime_tutor(websocket: WebSocket) -> None:
             await _send(websocket, {"type": "error", "message": start_error or "当前题目不可用。"})
             await websocket.close(code=1000)
             return
+        from deeptutor.services.learner_profile import context_summary
+
+        learner_context = context_summary()
+        if learner_context:
+            question_context["conversation_context"] = (
+                str(question_context.get("conversation_context") or "")
+                + "\n"
+                + learner_context
+            )[:6000]
 
         conversation_session_id = _session_id_for_start(start_payload)
         conversation_store: Any | None = None

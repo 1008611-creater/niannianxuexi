@@ -36,6 +36,7 @@ import type { SelectedQuestionEntry } from "@/components/chat/QuestionBankPicker
 import ChatComposer from "@/components/chat/home/ChatComposer";
 import RealtimeTutor from "@/components/space/RealtimeTutor";
 import JuniorMathBridge from "@/components/learning/JuniorMathBridge";
+import ChildProfileSetup from "@/components/learning/ChildProfileSetup";
 import type { ContextBudget } from "@/components/chat/home/ContextBudgetChip";
 import { ChatMessageList } from "@/components/chat/home/ChatMessages";
 import { TurnNavigator } from "@/components/chat/home/TurnNavigator";
@@ -2027,7 +2028,10 @@ export default function ChatPage() {
               <div className={`flex w-full flex-1 min-h-0 justify-center overflow-y-auto px-6 ${studentModeRef.current ? "pb-7 pt-5 sm:pt-8" : "items-center pb-14"}`}>
                 <div className="flex w-full max-w-[960px] flex-col items-center justify-center gap-8">
                   {studentModeRef.current ? (
-                    <JuniorMathBridge onStartAction={handleJuniorMathAction} />
+                    <>
+                      <ChildProfileSetup />
+                      <JuniorMathBridge onStartAction={handleJuniorMathAction} />
+                    </>
                   ) : null}
                   <div id="niannian-voice" className="w-full max-w-[720px] scroll-mt-6">
                     <RealtimeTutor
