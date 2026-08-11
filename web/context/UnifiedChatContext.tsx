@@ -33,6 +33,7 @@ import { buildVisiblePath, tipMessageId } from "@/lib/message-branches";
 import { nextOptimisticId } from "@/lib/optimistic-id";
 import { reconcileTurnIds } from "@/lib/turn-reconcile";
 import {
+  collapseExactDoubledAnswer,
   isNarrationMarker,
   recomputeAnswerContent,
   shouldAppendEventContent,
@@ -267,7 +268,7 @@ function createSessionEntry(
     messages: [],
     isStreaming: false,
     currentStage: "",
-    language: typeof window === "undefined" ? "en" : readStoredLanguage(),
+    language: typeof window === "undefined" ? "zh" : readStoredLanguage(),
     status: "idle",
     activeTurnId: null,
     lastSeq: 0,
@@ -517,13 +518,24 @@ function reducer(state: ProviderState, action: Action): ProviderState {
         },
       };
     }
-    case "STREAM_END":
+    case "STREAM_END": {
+      const session =
+        state.sessions[action.key] ?? createSessionEntry(action.key);
+      const messages = [...session.messages];
+      const last = messages[messages.length - 1];
+      if (last?.role === "assistant" && last.content) {
+        const content = collapseExactDoubledAnswer(last.content);
+        if (content !== last.content) {
+          messages[messages.length - 1] = { ...last, content };
+        }
+      }
       return {
         ...state,
         sessions: {
           ...state.sessions,
           [action.key]: {
-            ...(state.sessions[action.key] ?? createSessionEntry(action.key)),
+            ...session,
+            messages,
             isStreaming: false,
             currentStage: "",
             status: action.status ?? "completed",
@@ -538,6 +550,7 @@ function reducer(state: ProviderState, action: Action): ProviderState {
         },
         sidebarRefreshToken: state.sidebarRefreshToken + 1,
       };
+    }
     case "BIND_SERVER_SESSION": {
       const current =
         state.sessions[action.key] ?? createSessionEntry(action.key);
@@ -949,7 +962,7 @@ function hydrateRequestSnapshot(
         : message.capability || "",
     enabledTools: asStringArray(stored.enabledTools),
     knowledgeBases: asStringArray(stored.knowledgeBases),
-    language: typeof stored.language === "string" ? stored.language : "en",
+    language: typeof stored.language === "string" ? stored.language : "zh",
     ...(attachments.length ? { attachments } : {}),
   };
 

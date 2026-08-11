@@ -5,9 +5,8 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-// Sections that own their full height + scroll (Mastery Path's list/detail
-// console). They must NOT be squeezed into the centered, padded document
-// container the list-style sections use.
+// Student learning paths own their compact single-column surface. They must
+// not inherit the generic learning-space hub or its wide document padding.
 const FULL_BLEED = ["/space/learning"];
 
 function isFullBleed(pathname: string): boolean {
@@ -42,18 +41,15 @@ export default function SpaceMain({
 
   if (isFullBleed(pathname)) {
     return (
-      <div className="flex h-full min-h-0 flex-col bg-[var(--background)]">
-        <div className="shrink-0 border-b border-[var(--border)] px-5 py-2.5">
-          <BackToHub />
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+      <div className="h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y bg-[var(--background)] [-webkit-overflow-scrolling:touch]">
+        {children}
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--background)] [scrollbar-gutter:stable]">
-      <div className="mx-auto max-w-5xl px-8 py-8 pb-12">
+    <div className="h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y bg-[var(--background)] [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+      <div className="mx-auto min-h-full max-w-5xl px-8 py-8 pb-[calc(3rem+env(safe-area-inset-bottom,0px))]">
         {!isDashboard && (
           <div className="mb-5">
             <BackToHub />

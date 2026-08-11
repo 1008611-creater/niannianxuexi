@@ -108,7 +108,7 @@
     --card-foreground: #ffffff;
     --popover: rgba(24, 22, 36, 0.92);
     --popover-foreground: #ffffff;
-    --primary: #a855f7;
+    --primary: #7c3aed;
     --primary-foreground: #ffffff;
     --secondary: rgba(255, 255, 255, 0.04);
     --secondary-foreground: #eeeeee;
@@ -118,7 +118,7 @@
     --accent-foreground: #ffffff;
     --border: rgba(255, 255, 255, 0.12);
     --input: rgba(255, 255, 255, 0.06);
-    --ring: #a855f7;
+    --ring: #7c3aed;
     --overlay: rgba(0, 0, 0, 0.55);
   }
 
@@ -142,14 +142,14 @@
   }
 
   .theme-glass .btn-primary {
-    background: linear-gradient(45deg, #9d50bb, #6e48aa);
-    box-shadow: 0 0 15px rgba(157, 80, 187, 0.4);
+    background: linear-gradient(45deg, #7c3aed, #5b21b6);
+    box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
     border: none;
     transition: all 0.3s ease;
   }
 
   .theme-glass .btn-primary:hover {
-    box-shadow: 0 0 25px rgba(157, 80, 187, 0.6);
+    box-shadow: 0 0 25px rgba(124, 58, 237, 0.6);
     transform: translateY(-1px);
   }
 
@@ -762,8 +762,124 @@ body[data-picker-open] .dt-mark-pulse {
    slide-in and the squeeze animate as one motion. Stays a no-op below
    the lg breakpoint, where the drawer overlays instead. */
 .chat-preview-shell {
-  transition: padding-right 220ms ease-out;
   padding-right: 0;
+}
+
+/* Realtime call control: the middle shape is driven by live microphone level,
+   while teacher speech deliberately switches to a distinct violet speaker. */
+.realtime-call-control {
+  @apply inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] shadow-sm transition-colors hover:bg-[var(--muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.96];
+}
+
+.realtime-call-control.is-enabled {
+  @apply border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700;
+}
+
+.realtime-call-stop {
+  @apply text-rose-600 hover:border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30;
+}
+
+.realtime-call-core {
+  --audio-level: 0;
+  position: relative;
+  display: flex;
+  height: 132px;
+  width: 132px;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, #059669 35%, transparent);
+  border-radius: 9999px;
+  background: color-mix(in srgb, #059669 14%, var(--background));
+  box-shadow: 0 0 0 8px color-mix(in srgb, #059669 7%, transparent);
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.realtime-call-level {
+  display: flex;
+  height: 62px;
+  align-items: center;
+  gap: 4px;
+}
+
+.realtime-call-level-bar {
+  width: 5px;
+  border-radius: 9999px;
+  background: #059669;
+  transform: scaleY(calc(0.28 + var(--audio-level)));
+  transform-origin: center;
+  transition: transform 70ms linear, background-color 180ms ease;
+}
+
+.realtime-call-level-bar:nth-child(1),
+.realtime-call-level-bar:nth-child(7) { height: 18px; }
+.realtime-call-level-bar:nth-child(2),
+.realtime-call-level-bar:nth-child(6) { height: 30px; }
+.realtime-call-level-bar:nth-child(3),
+.realtime-call-level-bar:nth-child(5) { height: 45px; }
+.realtime-call-level-bar:nth-child(4) { height: 62px; }
+
+.realtime-call-core[data-state="connecting"] .realtime-call-level,
+.realtime-call-core[data-state="thinking"] .realtime-call-level {
+  animation: realtime-call-thinking 1.1s ease-in-out infinite;
+}
+
+.realtime-call-ring {
+  position: absolute;
+  inset: -13px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  opacity: 0;
+}
+
+.realtime-call-core.is-speaking {
+  border-color: color-mix(in srgb, #7c3aed 50%, transparent);
+  background: color-mix(in srgb, #7c3aed 18%, var(--background));
+  box-shadow: 0 0 0 8px color-mix(in srgb, #7c3aed 8%, transparent), 0 0 34px color-mix(in srgb, #8b5cf6 32%, transparent);
+}
+
+.realtime-call-speaker {
+  display: flex;
+  height: 72px;
+  width: 72px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: white;
+  background: #7c3aed;
+  box-shadow: 0 0 24px color-mix(in srgb, #8b5cf6 56%, transparent);
+}
+
+.realtime-call-core.is-speaking .realtime-call-ring {
+  border-color: color-mix(in srgb, #8b5cf6 60%, transparent);
+  animation: realtime-call-wave 1.7s ease-out infinite;
+}
+
+.realtime-call-core.is-speaking .realtime-call-ring-two {
+  animation-delay: 0.85s;
+}
+
+@keyframes realtime-call-thinking {
+  0%, 100% { opacity: 0.5; transform: scale(0.88); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes realtime-call-wave {
+  0% { opacity: 0.6; transform: scale(0.74); }
+  100% { opacity: 0; transform: scale(1.23); }
+}
+
+@media (max-width: 390px) {
+  .realtime-call-core { height: 120px; width: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .realtime-call-core *,
+  .realtime-call-core {
+    animation: none !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 /* While the viewer is being drag-resized, kill the squeeze transition so the
    chat column tracks the panel edge frame-for-frame instead of lagging. */

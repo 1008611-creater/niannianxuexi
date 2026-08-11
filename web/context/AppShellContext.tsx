@@ -44,6 +44,7 @@ import {
   writeStoredSidebarCollapsed,
   type AppLanguage,
 } from "@/context/app-shell-storage";
+import { apiFetch, apiUrl } from "@/lib/api";
 
 interface AppShellContextValue {
   theme: Theme;
@@ -68,8 +69,8 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     return getStoredTheme() ?? getSystemTheme();
   });
-  // Always start with "en" to match SSR; hydrate from localStorage after mount
-  const [language, setLanguageState] = useState<AppLanguage>("en");
+  // Start in Chinese for the China-facing student product; hydrate the saved choice after mount.
+  const [language, setLanguageState] = useState<AppLanguage>("zh");
   const [activeSessionId, setActiveSessionIdState] = useState<string | null>(
     () => readStoredActiveSessionId(),
   );
@@ -193,6 +194,27 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
     writeStoredLanguage(nextLanguage);
     setLanguageState(nextLanguage);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void apiFetch(apiUrl("/api/v1/settings"))
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          ui?: { language?: string };
+        };
+        if (cancelled || !payload.ui?.language) return;
+        setLanguage(normalizeLanguage(payload.ui.language));
+      })
+      .catch(() => {
+        // Keep the local preference when the backend is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setLanguage]);
 
   const setActiveSessionId = useCallback((sessionId: string | null) => {
     writeStoredActiveSessionId(sessionId);

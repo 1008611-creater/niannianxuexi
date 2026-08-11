@@ -59,6 +59,7 @@ export type CatalogModel = {
   size?: string;
   quality?: string;
   style?: string;
+  reference_image_urls?: string;
   // Video generation: aspect ratio (e.g. "16:9"), duration (seconds), resolution.
   aspect_ratio?: string;
   duration?: string;
@@ -163,7 +164,10 @@ export type ProviderOption = {
   base_url?: string;
   default_dim?: string;
   default_model?: string;
+  default_aspect_ratio?: string;
+  default_resolution?: string;
   default_voice?: string;
+  default_response_format?: string;
   auth_mode?: "api_key" | "oauth";
 };
 
@@ -535,6 +539,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     codeBlockTheme,
     codeBlockShowLineNumbers,
     codeBlockWrapLongLines,
+    setLanguage: setAppShellLanguage,
     setCodeBlockTheme: setAppShellCodeBlockTheme,
     setCodeBlockShowLineNumbers: setAppShellCodeBlockShowLineNumbers,
     setCodeBlockWrapLongLines: setAppShellCodeBlockWrapLongLines,
@@ -542,7 +547,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [theme, setTheme] = useState<UiSettings["theme"]>("snow");
-  const [language, setLanguage] = useState<UiSettings["language"]>("en");
+  const [language, setLanguage] = useState<UiSettings["language"]>("zh");
   const [catalog, setCatalog] = useState<Catalog>(defaultCatalog());
   const [draft, setDraft] = useState<Catalog>(defaultCatalog());
   const [catalogEditable, setCatalogEditable] = useState<boolean | null>(null);
@@ -629,9 +634,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
       setTheme(payload.ui.theme);
       setLanguage(payload.ui.language);
-      // Writes the backend-loaded values into app-shell storage and dispatches
-      // the code-block settings event; AppShellContext (the single source) picks
-      // them up, so no separate copy needs seeding here.
+      setAppShellLanguage(payload.ui.language);
+      // Keep app-shell preferences aligned with the backend-loaded settings so
+      // the global i18n provider and code-block consumers use the same values.
       syncLoadedCodeBlockSettingsToAppShell(payload.ui);
       if (payload.providers) setProviders(payload.providers);
       settingsLoaded = true;
@@ -664,7 +669,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-  }, [t]);
+  }, [setAppShellLanguage, t]);
 
   // Load settings + status once on mount. Subsequent navigations between
   // settings sub-pages share this state via the layout-level provider.
@@ -797,7 +802,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             ...(service === "tts"
               ? {
                   voice: providerOption?.default_voice ?? "",
-                  response_format: "mp3",
+                  response_format:
+                    providerOption?.default_response_format ?? "mp3",
                 }
               : {}),
           });
@@ -856,7 +862,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ...(service === "tts"
             ? {
                 voice: providerOption?.default_voice ?? "",
-                response_format: "mp3",
+                response_format:
+                  providerOption?.default_response_format ?? "mp3",
               }
             : {}),
         });

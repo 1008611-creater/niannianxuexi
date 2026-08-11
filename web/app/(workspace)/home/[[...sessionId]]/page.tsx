@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 import {
   BarChart3,
@@ -34,6 +34,7 @@ import type { SelectedRecord } from "@/lib/notebook-selection-types";
 import type { SelectedHistorySession } from "@/components/chat/HistorySessionPicker";
 import type { SelectedQuestionEntry } from "@/components/chat/QuestionBankPicker";
 import ChatComposer from "@/components/chat/home/ChatComposer";
+import RealtimeTutor from "@/components/space/RealtimeTutor";
 import type { ContextBudget } from "@/components/chat/home/ContextBudgetChip";
 import { ChatMessageList } from "@/components/chat/home/ChatMessages";
 import { TurnNavigator } from "@/components/chat/home/TurnNavigator";
@@ -103,6 +104,8 @@ import {
 } from "@/lib/tools-settings";
 import { downloadChatMarkdown } from "@/lib/chat-export";
 import { buildChatOutline } from "@/lib/chat-outline";
+import { normalizeMessageContent } from "@/lib/message-content";
+import { buildRealtimeLearningContext } from "@/lib/realtime-learning-context";
 import type { SpaceMemoryFile } from "@/lib/space-items";
 import {
   selectedBooksToPayload,
@@ -341,10 +344,23 @@ function readContextBudget(
 
 export default function ChatPage() {
   const params = useParams<{ sessionId?: string[] }>();
+  const pathname = usePathname();
   const router = useRouter();
   const { t } = useTranslation();
   const sessionIdParam = params.sessionId?.[0] ?? null;
   const { setActiveSessionId, language: appLanguage } = useAppShell();
+  // Keep the focused student surface after a new chat receives its server id.
+  // The route is rewritten below, so this flag must be captured before the
+  // query string is replaced.
+  const studentModeRef = useRef<boolean | undefined>(undefined);
+  if (studentModeRef.current === undefined) {
+    studentModeRef.current =
+      pathname === "/home" ||
+      pathname.startsWith("/home/") ||
+      pathname.startsWith("/space/score/photo") ||
+      (typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("student") === "1");
+  }
 
   const {
     state,
@@ -412,6 +428,7 @@ export default function ChatPage() {
   // session activity; files and web pages open as tabs alongside it.
   const [viewerPanelOpen, setViewerPanelOpen] = useState(false);
   useEffect(() => {
+    if (studentModeRef.current) return;
     if (typeof window === "undefined") return;
     if (window.localStorage.getItem("dt:chat:viewer-panel") === "1") {
       setViewerPanelOpen(true);
@@ -648,42 +665,27 @@ export default function ChatPage() {
     }
   }, [capabilityNeedsConfig, ensureActivityPanelOpen]);
   const hasMessages = state.messages.length > 0;
-  // Time-of-day greeting: seeded once on mount from the user's local clock so
-  // the heading stays stable while they're on the page. State (not useMemo)
-  // because the random pick would otherwise mismatch SSR ↔ client hydration.
-  const [welcomeGreeting, setWelcomeGreeting] = useState<string>(
-    "What would you like to learn?",
+  const realtimeContext = useMemo(
+    () => buildRealtimeLearningContext(
+      state.messages.map((message) => ({
+        role: message.role,
+        content: normalizeMessageContent(message.content),
+        hasAttachment: Boolean(message.attachments?.length),
+        attachmentSummary: message.attachments?.map((attachment) => [
+          attachment.filename,
+          attachment.extracted_text,
+          attachment.type === "image" || attachment.mime_type?.startsWith("image/")
+            ? "题目图片"
+            : undefined,
+        ].filter(Boolean).join("：")).filter(Boolean).join("；"),
+      })),
+    ),
+    [state.messages],
   );
-  useEffect(() => {
-    const hour = new Date().getHours();
-    let bucket: string[];
-    if (hour >= 5 && hour < 12) {
-      bucket = [
-        "Good morning.",
-        "Morning — let's learn something.",
-        "What would you like to learn?",
-      ];
-    } else if (hour >= 12 && hour < 17) {
-      bucket = [
-        "Good afternoon.",
-        "Afternoon — what's on your mind?",
-        "What would you like to learn?",
-      ];
-    } else if (hour >= 17 && hour < 22) {
-      bucket = [
-        "Good evening.",
-        "Evening — what shall we explore?",
-        "What would you like to learn?",
-      ];
-    } else {
-      bucket = [
-        "It's late today.",
-        "Burning the midnight oil?",
-        "What would you like to learn?",
-      ];
-    }
-    setWelcomeGreeting(bucket[Math.floor(Math.random() * bucket.length)]);
-  }, []);
+  const handleRealtimeSessionEnd = useCallback(() => {
+    if (!state.sessionId) return;
+    void loadSession(state.sessionId).catch(() => undefined);
+  }, [loadSession, state.sessionId]);
   const firstUserTitle = useMemo(
     () =>
       state.messages
@@ -694,9 +696,10 @@ export default function ChatPage() {
     [state.messages],
   );
   const persistedSessionTitle = state.sessionTitle.trim();
-  const displaySessionTitle =
-    persistedSessionTitle || firstUserTitle || t("New chat");
-  const canRenameSession = Boolean(state.sessionId);
+  const displaySessionTitle = studentModeRef.current
+    ? t("Photo question help")
+    : persistedSessionTitle || firstUserTitle || t("New chat");
+  const canRenameSession = !studentModeRef.current && Boolean(state.sessionId);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const skipTitleCommitRef = useRef(false);
   const [sessionTitleDraft, setSessionTitleDraft] =
@@ -1035,7 +1038,10 @@ export default function ChatPage() {
   // When a new session_id is assigned by the server, update the URL
   useEffect(() => {
     if (state.sessionId && !sessionIdParam) {
-      router.replace(`/home/${state.sessionId}`, { scroll: false });
+      const target = studentModeRef.current
+        ? `/space/score/photo/${state.sessionId}`
+        : `/home/${state.sessionId}`;
+      router.replace(target, { scroll: false });
     }
   }, [state.sessionId, sessionIdParam, router]);
 
@@ -1146,12 +1152,16 @@ export default function ChatPage() {
     const p = new URLSearchParams(window.location.search);
     const qc = p.get("capability");
     const qt = p.getAll("tool");
+    const prompt = p.get("prompt");
     if (qc !== null) handleSelectCapability(qc || "");
     else if (qt.length) {
       const valid = qt.filter((t): t is ToolName =>
         ALL_TOOLS.some((d) => d.name === t),
       );
       if (valid.length) setTools(Array.from(new Set(valid)));
+    }
+    if (prompt && !studentModeRef.current) {
+      window.setTimeout(() => handlePrefillComposer(prompt), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1905,7 +1915,11 @@ export default function ChatPage() {
         >
           <div className="mx-auto flex w-full max-w-[960px] flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-6 pt-3 pb-0">
             <div className="group/title min-w-0 flex flex-1 items-center gap-2">
-              {sessionTitleEditing ? (
+              {studentModeRef.current ? (
+                <h1 className="min-w-0 truncate px-2 py-1 font-serif text-[17px] font-semibold tracking-[-0.01em] text-[var(--foreground)]">
+                  {t("Photo question help")}
+                </h1>
+              ) : sessionTitleEditing ? (
                 <input
                   ref={titleInputRef}
                   value={sessionTitleDraft}
@@ -1946,28 +1960,30 @@ export default function ChatPage() {
                 </span>
               ) : null}
             </div>
-            <div className="flex shrink-0 items-center gap-0.5">
-              <HeaderActionButton
-                onClick={() => setShowSaveModal(true)}
-                disabled={!chatSavePayload}
-                icon={BookmarkPlus}
-                label={t("Save to Notebook")}
-              />
-              <HeaderActionButton
-                onClick={handleDownloadMarkdown}
-                disabled={!state.messages.length}
-                icon={Download}
-                label={t("Download Markdown")}
-                title={t("Download chat history as Markdown")}
-              />
-              <HeaderActionButton
-                onClick={toggleViewerPanel}
-                active={viewerPanelOpen}
-                icon={PanelRight}
-                label={t("Activity")}
-                title={t("Session activity, attachments & previews")}
-              />
-            </div>
+            {!studentModeRef.current ? (
+              <div className="flex shrink-0 items-center gap-0.5">
+                <HeaderActionButton
+                  onClick={() => setShowSaveModal(true)}
+                  disabled={!chatSavePayload}
+                  icon={BookmarkPlus}
+                  label={t("Save to Notebook")}
+                />
+                <HeaderActionButton
+                  onClick={handleDownloadMarkdown}
+                  disabled={!state.messages.length}
+                  icon={Download}
+                  label={t("Download Markdown")}
+                  title={t("Download chat history as Markdown")}
+                />
+                <HeaderActionButton
+                  onClick={toggleViewerPanel}
+                  active={viewerPanelOpen}
+                  icon={PanelRight}
+                  label={t("Activity")}
+                  title={t("Session activity, attachments & previews")}
+                />
+              </div>
+            ) : null}
           </div>
           <div className="flex w-full flex-1 min-h-0 flex-col">
             {sessionLoading ? (
@@ -1977,19 +1993,17 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : !hasMessages ? (
-              <div className="flex w-full flex-1 min-h-0 items-end justify-center pb-14 animate-fade-in px-6">
-                <div className="w-full max-w-[960px] flex items-center justify-center gap-4">
-                  <img
-                    src="/logo_black.png"
-                    alt="DeepTutor"
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 select-none"
-                    draggable={false}
-                  />
-                  <h1 className="font-serif text-[40px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--foreground)]">
-                    {t(welcomeGreeting)}
-                  </h1>
+              <div className={`flex w-full flex-1 min-h-0 justify-center overflow-y-auto px-6 ${studentModeRef.current ? "pb-7 pt-5 sm:pt-8" : "items-center pb-14"}`}>
+                <div className="flex w-full max-w-[960px] flex-col items-center justify-center gap-8">
+                  <div id="niannian-voice" className="w-full max-w-[720px] scroll-mt-6">
+                    <RealtimeTutor
+                      layout="call"
+                      variant="conversation"
+                      context={realtimeContext}
+                      sessionId={state.sessionId ?? undefined}
+                      onSessionEnd={handleRealtimeSessionEnd}
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -2008,7 +2022,7 @@ export default function ChatPage() {
                   // header and composer (siblings outside this scrollport) on
                   // classic-scrollbar platforms; plain `stable` would shift it
                   // ~half a scrollbar-width left of them.
-                  className={`w-full flex-1 min-h-0 overflow-y-auto [scrollbar-gutter:stable_both-edges] ${hasMessages ? "pt-6" : "pt-2 pb-6"}`}
+                  className={`w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable_both-edges] ${hasMessages ? "pt-6" : "pt-2 pb-6"}`}
                   style={
                     hasMessages
                       ? (() => {
@@ -2049,6 +2063,17 @@ export default function ChatPage() {
                       onSwitchBranch={switchBranch}
                       onSubmitUserReply={submitUserReply}
                     />
+                    {studentModeRef.current ? (
+                      <div className="flex justify-center pt-1">
+                        <RealtimeTutor
+                          layout="compact"
+                          variant="conversation"
+                          context={realtimeContext}
+                          sessionId={state.sessionId ?? undefined}
+                          onSessionEnd={handleRealtimeSessionEnd}
+                        />
+                      </div>
+                    ) : null}
                     <div
                       ref={messagesEndRef}
                       className="h-px w-full shrink-0"
@@ -2064,6 +2089,7 @@ export default function ChatPage() {
               </div>
             )}
 
+            <div id="niannian-composer" className="scroll-mt-6">
             <ChatComposer
               composerRef={composerRef}
               capMenuRef={capMenuRef}
@@ -2075,6 +2101,8 @@ export default function ChatPage() {
               capMenuOpen={capMenuOpen}
               spaceMenuOpen={spaceMenuOpen}
               hasMessages={hasMessages}
+              messages={state.messages}
+              sessionId={state.sessionId}
               attachments={attachments}
               attachmentError={attachmentError}
               activeCap={activeCap}
@@ -2139,12 +2167,14 @@ export default function ChatPage() {
               onSelectCapability={handleSelectCapability}
               onCancelStreaming={cancelStreamingTurn}
               prefillInputRef={prefillInputRef}
+              inputPlaceholder={studentModeRef.current ? t("Photo, voice, or text question") : undefined}
             />
+            </div>
             <div
               aria-hidden="true"
               className="shrink-0"
               style={{
-                flexGrow: hasMessages ? 0 : 1.4,
+                flexGrow: hasMessages ? 0 : studentModeRef.current ? 0 : 1.4,
                 transition: "flex-grow 650ms cubic-bezier(0.16, 1, 0.3, 1)",
               }}
             />
@@ -2192,15 +2222,17 @@ export default function ChatPage() {
             source={previewSource}
             onClose={handleClosePreview}
           />
-          <SessionViewerPanel
-            ref={viewerPanelRef}
-            open={viewerPanelOpen && previewSource === null}
-            sessionId={state.sessionId}
-            activity={sessionActivity}
-            configSection={capabilityConfigSection}
-            onClose={() => setViewerOpen(false)}
-            onAutoOpen={() => setViewerOpen(true)}
-          />
+          {!studentModeRef.current ? (
+            <SessionViewerPanel
+              ref={viewerPanelRef}
+              open={viewerPanelOpen && previewSource === null}
+              sessionId={state.sessionId}
+              activity={sessionActivity}
+              configSection={capabilityConfigSection}
+              onClose={() => setViewerOpen(false)}
+              onAutoOpen={() => setViewerOpen(true)}
+            />
+          ) : null}
         </div>
       </GeogebraTabProvider>
     </QuizFollowupProvider>

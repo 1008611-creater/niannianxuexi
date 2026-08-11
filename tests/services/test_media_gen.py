@@ -26,6 +26,7 @@ from deeptutor.services.generation_http import (
 from deeptutor.services.imagegen import generate_image
 from deeptutor.services.imagegen.adapters.chat_completions import ChatCompletionsImagegenAdapter
 from deeptutor.services.imagegen.adapters.openai_compat import OpenAICompatImagegenAdapter
+from deeptutor.services.imagegen.adapters.runninghub import RunningHubImage2Adapter
 from deeptutor.services.imagegen.config import ImagegenConfig
 from deeptutor.services.videogen import generate_video, probe_video
 from deeptutor.services.videogen.adapters.async_task import AsyncTaskVideogenAdapter
@@ -137,6 +138,68 @@ async def test_imagegen_chat_completions_adapter_data_uri(monkeypatch: pytest.Mo
     assert post["url"] == "https://openrouter.ai/api/v1/chat/completions"
     assert post["json"]["modalities"] == ["image", "text"]
     assert post["json"]["messages"][0]["content"] == "a fox"
+
+
+@pytest.mark.asyncio
+async def test_runninghub_image2_submit_query_and_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    result_url = "https://cdn.runninghub.cn/result.png"
+
+    def post_router(url: str, _kwargs: Any) -> httpx.Response:
+        if url.endswith("/rhart-image-g-2/image-to-image"):
+            return httpx.Response(200, json={"taskId": "rh-task-1"})
+        assert url.endswith("/openapi/v2/query")
+        return httpx.Response(200, json={"status": "succeeded", "images": [result_url]})
+
+    def get_router(url: str, _kwargs: Any) -> httpx.Response:
+        assert url == result_url
+        return httpx.Response(200, content=b"RHPNG", headers={"content-type": "image/png"})
+
+    captured = _patch_http(monkeypatch, post=post_router, get=get_router)
+    config = ImagegenConfig(
+        model="rhart-image-g-2",
+        provider_name="runninghub_image2",
+        adapter="runninghub_image2",
+        base_url="https://www.runninghub.cn",
+        api_key="rh-test-key",
+        reference_image_urls=["https://example.com/reference.png"],
+        aspect_ratio="9:16",
+        resolution="4k",
+        poll_interval=0.0,
+    )
+
+    images = await RunningHubImage2Adapter().generate("把参考图变成学习海报", config)
+
+    assert images == [(b"RHPNG", "image/png")]
+    assert [post["url"] for post in captured["posts"]] == [
+        "https://www.runninghub.cn/openapi/v2/rhart-image-g-2/image-to-image",
+        "https://www.runninghub.cn/openapi/v2/query",
+    ]
+    submit = captured["posts"][0]
+    assert submit["headers"]["Authorization"] == "Bearer rh-test-key"
+    assert submit["json"] == {
+        "prompt": "把参考图变成学习海报",
+        "imageUrls": ["https://example.com/reference.png"],
+        "aspectRatio": "9:16",
+        "resolution": "4k",
+        "tools": ["image_generation"],
+    }
+    assert captured["posts"][1]["json"] == {"taskId": "rh-task-1"}
+
+
+@pytest.mark.asyncio
+async def test_runninghub_image2_requires_reference_before_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _patch_http(monkeypatch, post=httpx.Response(500, text="must not call"))
+    config = ImagegenConfig(
+        model="rhart-image-g-2",
+        adapter="runninghub_image2",
+        base_url="https://www.runninghub.cn",
+        api_key="rh-test-key",
+    )
+    with pytest.raises(GenerationProviderError, match="public reference image URL"):
+        await RunningHubImage2Adapter().generate("x", config)
+    assert captured["posts"] == []
 
 
 @pytest.mark.asyncio
@@ -269,6 +332,39 @@ def test_resolve_imagegen_openrouter_uses_chat_adapter() -> None:
     assert cfg.provider_name == "openrouter"
     assert cfg.adapter == "chat_completions"
     assert cfg.base_url == "https://openrouter.ai/api/v1"
+
+
+def test_resolve_imagegen_runninghub_defaults_and_reference_urls() -> None:
+    catalog = {
+        "version": 1,
+        "services": {
+            "imagegen": {
+                "active_profile_id": "p",
+                "active_model_id": "m",
+                "profiles": [
+                    {
+                        "id": "p",
+                        "binding": "runninghub_image2",
+                        "base_url": "",
+                        "api_key": "rh-key",
+                        "models": [
+                            {
+                                "id": "m",
+                                "model": "rhart-image-g-2",
+                                "reference_image_urls": "https://a.test/a.png\nhttps://b.test/b.png",
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+    }
+    cfg = resolve_imagegen_runtime_config(catalog=catalog)
+    assert cfg.adapter == "runninghub_image2"
+    assert cfg.base_url == "https://www.runninghub.cn"
+    assert cfg.reference_image_urls == ["https://a.test/a.png", "https://b.test/b.png"]
+    assert cfg.aspect_ratio == "1:1"
+    assert cfg.resolution == "4k"
 
 
 def test_resolve_videogen_config_uses_async_task_adapter() -> None:

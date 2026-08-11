@@ -362,7 +362,10 @@ export default function NotebookPage() {
             <Loader2 className="h-5 w-5 animate-spin text-[var(--muted-foreground)]" />
           </div>
         ) : error ? (
-          <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-red-300 text-center dark:border-red-900">
+          <div
+            role="alert"
+            className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-red-300 text-center dark:border-red-900"
+          >
             <div className="mb-3 rounded-xl bg-red-50 p-2.5 text-red-500 dark:bg-red-950/30">
               <AlertTriangle size={18} />
             </div>
@@ -374,7 +377,7 @@ export default function NotebookPage() {
             </p>
             <button
               onClick={() => void loadItems(filter, activeCategoryId)}
-              className="mt-3 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-[12px] font-medium text-white"
+              className="mt-3 inline-flex min-h-11 touch-manipulation items-center rounded-lg bg-[var(--primary)] px-4 text-[13px] font-medium text-white"
             >
               {t("Retry")}
             </button>

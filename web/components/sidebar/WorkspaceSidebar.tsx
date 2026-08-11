@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { SidebarShell } from "@/components/sidebar/SidebarShell";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AdminLink } from "@/components/auth/AdminLink";
+import { BillingAdminLink } from "@/components/auth/BillingAdminLink";
+import { BillingLink } from "@/components/auth/BillingLink";
 import { ProfileLink } from "@/components/auth/ProfileLink";
 import { useUnifiedChat } from "@/context/UnifiedChatContext";
 import {
@@ -28,7 +30,6 @@ export default function WorkspaceSidebar() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const hasLoadedSessionsRef = useRef(false);
-
   const refreshSessions = useCallback(async () => {
     if (!hasLoadedSessionsRef.current) {
       setLoadingSessions(true);
@@ -136,7 +137,9 @@ export default function WorkspaceSidebar() {
       footerSlot={(collapsed) => (
         <>
           <ProfileLink collapsed={collapsed} />
+          <BillingLink collapsed={collapsed} />
           <AdminLink collapsed={collapsed} />
+          <BillingAdminLink collapsed={collapsed} />
           <LogoutButton collapsed={collapsed} />
         </>
       )}

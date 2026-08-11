@@ -176,17 +176,20 @@ export default function ContextBudgetChip({
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (rootRef.current && !rootRef.current.contains(target)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onPointerDown);
+    // `mousedown` does not fire for every touch interaction in Android
+    // WebViews. Pointer events cover touch, stylus, and mouse so a tap outside
+    // this panel always returns the composer to its normal state.
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -233,7 +236,7 @@ export default function ContextBudgetChip({
         aria-label={t("contextBudget.chipAria", { percent: usedPercentLabel })}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium tabular-nums transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
+        className={`inline-flex min-h-11 min-w-11 shrink-0 touch-manipulation items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium tabular-nums transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
           open
             ? "bg-[var(--muted)] text-[var(--foreground)]"
             : nearFull
@@ -249,8 +252,8 @@ export default function ContextBudgetChip({
         <div
           role="dialog"
           aria-label={t("contextBudget.title")}
-          style={{ transformOrigin: "bottom right" }}
-          className="dt-popup-up absolute bottom-full right-0 z-50 mb-1.5 w-[min(300px,calc(100vw-32px))] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--popover)] shadow-lg backdrop-blur-md"
+          style={{ transformOrigin: "bottom center" }}
+          className="dt-popup-up absolute bottom-full left-1/2 z-50 mb-1.5 w-[calc(100vw-2rem)] max-w-[22rem] -translate-x-1/2 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--popover)] shadow-lg backdrop-blur-md sm:left-auto sm:right-0 sm:w-[min(300px,calc(100vw-32px))] sm:max-w-none sm:translate-x-0"
         >
           <div className="px-3 pb-2.5 pt-2.5">
             <div className="flex items-baseline justify-between gap-2">
@@ -258,7 +261,7 @@ export default function ContextBudgetChip({
                 {t("contextBudget.title")}
               </span>
               {budget.model ? (
-                <span className="min-w-0 truncate text-[10.5px] text-[var(--muted-foreground)]/70">
+                <span className="hidden min-w-0 truncate text-[10.5px] text-[var(--muted-foreground)]/70 sm:inline">
                   {budget.model}
                 </span>
               ) : null}

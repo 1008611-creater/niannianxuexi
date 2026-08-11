@@ -172,6 +172,41 @@ Inside `deeptutor chat`, use these:
 | `/refs` | Show all active references |
 | `/config show\|set\|clear` | Manage capability config |
 
+## Streamed Answer Integrity
+
+When a user reports that one completed assistant answer is shown twice,
+treat it as a stream finalization and persistence boundary issue before
+changing the teaching prompt or model configuration. Inspect only the
+affected runtime and UI code; do not inspect user sessions, messages,
+cookies, provider settings, or credentials to diagnose it.
+
+For a substantial answer that is exactly two identical halves, collapse it
+once at both boundaries: before the backend persists the final assistant
+message, and before the frontend commits the completed streamed message to
+its display state. Require a strict character-for-character half match and a
+minimum substantial-text threshold. Do not apply fuzzy similarity, prefix
+matching, or short-text deduplication, because legitimate learning content
+may repeat a phrase, equation, or emphasis.
+
+Keep the backend rule in `deeptutor/services/session/turn_runtime.py` and
+the frontend rule in `web/lib/stream.ts`, then apply the frontend result at
+stream completion in `web/context/UnifiedChatContext.tsx`. Cover these
+cases with focused tests:
+
+- A long exact doubled answer becomes one copy.
+- A short repeated string stays unchanged.
+- A non-identical or merely similar answer stays unchanged.
+
+After a release, verify the candidate image contains the runtime rule, the
+application becomes healthy, and the public learning route loads. Do not
+send a real model message solely for deployment verification. Ask the user
+to refresh or reopen the client and continue their existing exercise; only
+new replies are expected to be deduplicated. Preserve historical duplicated
+messages rather than rewriting learning records. If duplication still
+appears after a refreshed client receives a new reply, stop treating the
+strict folding rule as sufficient and trace the event producer and consumer
+counts before adding broader deduplication.
+
 ## Typical Workflows
 
 **First-time setup:**

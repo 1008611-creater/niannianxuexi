@@ -1,8 +1,8 @@
 const FENCE = "```";
 
-export const CO_WRITER_SAMPLE_TEMPLATE = `# DeepTutor Co-Writer
+export const CO_WRITER_SAMPLE_TEMPLATE = `# 念念 Co-Writer
 
-> DeepTutor's built-in writing canvas for notes, reports, tutorials, and AI-assisted drafts.
+> 念念内置的写作画布，用于笔记、报告、教程和 AI 辅助创作。
 
 ### Features
 
@@ -10,14 +10,14 @@ export const CO_WRITER_SAMPLE_TEMPLATE = `# DeepTutor Co-Writer
 - Real-time preview for headings, tables, code, math, flowchart, and sequence diagrams
 - AI editing workflows for rewrite, shorten, and expand
 - HTML tag decoding for tags like <sub>, <sup>, <abbr>, and <mark>
-- A practical starter draft for DeepTutor product docs and learning content
+- A practical starter draft for 念念 product docs and learning content
 
 ## Headers (Underline)
 
-DeepTutor Learning Note
+念念学习笔记
 =============
 
-DeepTutor Study Outline
+念念学习提纲
 -------------
 
 ### Characters
@@ -33,25 +33,25 @@ Superscript: X<sup>2</sup>, Subscript: O<sub>2</sub>
 
 **Abbreviation(link HTML abbr tag)**
 
-The <abbr title="Large Language Model">LLM</abbr> layer powers DeepTutor while the <abbr title="Retrieval Augmented Generation">RAG</abbr> layer provides grounded knowledge support.
+The <abbr title="Large Language Model">LLM</abbr> layer powers 念念 while the <abbr title="Retrieval Augmented Generation">RAG</abbr> layer provides grounded knowledge support.
 
 ### Blockquotes
 
-> DeepTutor helps students turn questions into structured understanding.
+> 念念帮助学生把问题转化为结构化理解。
 >
-> "Learn deeply, write clearly.", [DeepTutor](#deeptutor-co-writer)
+> "Learn deeply, write clearly.", [念念](#念念-co-writer)
 
 ### Links
 
-[DeepTutor Co-Writer](#deeptutor-co-writer "co-writer section")
+[念念 Co-Writer](#念念-co-writer "co-writer section")
 
-[DeepTutor Learning Note](#deeptutor-learning-note)
+[念念学习笔记](#念念学习笔记)
 
-[DeepTutor Website](https://deeptutor.info)
+[念念官网](https://deeptutor.info)
 
 [Reference link][deeptutor-doc]
 
-[deeptutor-doc]: #deeptutor-learning-note
+[deeptutor-doc]: #念念学习笔记
 
 ### Code Blocks
 
@@ -63,7 +63,7 @@ The <abbr title="Large Language Model">LLM</abbr> layer powers DeepTutor while t
 
     from deeptutor.runtime.orchestrator import ChatOrchestrator
     orchestrator = ChatOrchestrator()
-    print("DeepTutor is ready.")
+    print("念念 is ready.")
 
 #### Python
 
@@ -86,7 +86,7 @@ ${FENCE}
 
 ${FENCE}json
 {
-  "app_name": "DeepTutor",
+  "app_name": "念念 AI",
   "default_capability": "chat",
   "enabled_tools": ["rag", "web_search", "code_execution", "reason"],
   "ui": {
@@ -99,22 +99,22 @@ ${FENCE}
 
 ${FENCE}html
 <section class="deeptutor-card">
-  <h1>DeepTutor</h1>
+  <h1>念念 AI</h1>
   <p>Write, revise, and organize learning content with AI.</p>
 </section>
 ${FENCE}
 
 ### Images
 
-![](/logo-ver2.png)
+![](/niannian-logo.svg)
 
-> DeepTutor brand mark used inside the co-writer template.
+> 念念品牌标志，用于 Co-Writer 示例模板。
 
 ### Lists
 
-- DeepTutor Chat
-- DeepTutor Co-Writer
-- DeepTutor Research
+- 念念对话
+- 念念 Co-Writer
+- 念念研究
 
 1. Draft a concept note
 2. Ask AI to refine it
@@ -136,7 +136,7 @@ Research      | Build structured multi-step reports
 
 ### Markdown extras
 
-- [x] Draft a DeepTutor product note
+- [x] Draft a 念念 product note
 - [x] Add references and structure
 - [ ] Polish the final explanation
   - [ ] Check headings
@@ -156,7 +156,7 @@ $$ \\sin(\\alpha)^{\\theta}=\\sum_{i=0}^{n}(x^i + \\cos(f))$$
 
 ${FENCE}flow
 st=>start: Student asks a question
-op=>operation: DeepTutor analyzes intent
+op=>operation: 念念分析意图
 cond=>condition: Need deep workflow?
 chat=>operation: Answer with chat capability
 solve=>operation: Route to deep solve
@@ -172,11 +172,11 @@ ${FENCE}
 ### Sequence Diagram
 
 ${FENCE}seq
-Student->DeepTutor: Ask for help
-DeepTutor->KnowledgeBase: Load context
-Note right of DeepTutor: Collect memory\\nand relevant knowledge
-DeepTutor-->Student: Return guided response
-Student->>DeepTutor: Request rewrite in co-writer
+Student->念念: Ask for help
+念念->KnowledgeBase: Load context
+Note right of 念念: Collect memory\\nand relevant knowledge
+念念-->Student: Return guided response
+Student->>念念: Request rewrite in co-writer
 ${FENCE}
 
 ### End

@@ -54,7 +54,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-y-contain bg-[var(--overlay)] px-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:items-center"
       role="alertdialog"
       aria-modal="true"
       aria-label={title}
@@ -64,7 +64,7 @@ export function ConfirmDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl"
+        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl max-h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-[var(--foreground)]">
@@ -74,7 +74,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)] disabled:opacity-40"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)] disabled:opacity-40 touch-manipulation sm:min-h-0 sm:min-w-0"
             aria-label={t("Close")}
           >
             <X size={16} />
@@ -93,7 +93,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             disabled={busy}
             autoFocus
-            className="rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-40"
+            className="min-h-11 rounded-lg px-3 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-40 touch-manipulation sm:min-h-0 sm:py-1.5"
           >
             {resolvedCancelLabel}
           </button>
@@ -101,7 +101,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40 transition-colors ${
+            className={`min-h-11 rounded-lg px-3 text-sm font-medium disabled:opacity-40 transition-colors touch-manipulation sm:min-h-0 sm:py-1.5 ${
               tone === "danger"
                 ? "bg-red-600 text-white hover:bg-red-700"
                 : "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90"

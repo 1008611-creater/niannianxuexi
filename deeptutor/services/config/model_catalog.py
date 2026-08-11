@@ -184,6 +184,9 @@ class ModelCatalogService:
                             model.setdefault("quality", "")
                             model.setdefault("style", "")
                             model.setdefault("response_format", "")
+                            model.setdefault("reference_image_urls", "")
+                            model.setdefault("aspect_ratio", "")
+                            model.setdefault("resolution", "")
                         elif service_name == "videogen":
                             model.setdefault("aspect_ratio", "")
                             model.setdefault("duration", "")

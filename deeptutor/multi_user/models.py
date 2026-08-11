@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 Role = Literal["admin", "user"]
 ScopeKind = Literal["admin", "user"]
+AccessStatus = Literal["pending", "active", "disabled"]
+AccessSource = Literal["admin", "payment", "system"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +19,9 @@ class UserRecord:
     role: Role = "user"
     created_at: str = ""
     disabled: bool = False
+    access_status: AccessStatus = "pending"
+    access_source: AccessSource | None = None
+    paid_until: str | None = None
     # Avatar marker: "" (deterministic fallback), "icon:<name>:<color>" for a
     # picked icon, or "img:<version>" when the user uploaded an image (the
     # version is bumped on every upload so clients can cache-bust).
@@ -29,6 +34,9 @@ class UserRecord:
             "role": self.role,
             "created_at": self.created_at,
             "disabled": self.disabled,
+            "access_status": self.access_status,
+            "access_source": self.access_source,
+            "paid_until": self.paid_until,
             "avatar": self.avatar,
         }
 

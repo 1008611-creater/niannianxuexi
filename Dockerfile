@@ -14,6 +14,10 @@
 #   2. Configure provider profiles from the web Settings page or model_catalog.json
 # ============================================
 
+# Keep the build platform explicit for older Docker builders that do not
+# provide BuildKit's automatic BUILDPLATFORM argument.
+ARG BUILDPLATFORM=linux/amd64
+
 # ============================================
 # Stage 1: Frontend Builder
 # ============================================
@@ -48,7 +52,7 @@ RUN printf 'NEXT_PUBLIC_APP_VERSION=\n' > .env.local
 
 # Build Next.js for production with standalone output
 # This allows runtime environment variable injection
-RUN npm run build
+RUN npm run build -- --turbopack
 
 # ============================================
 # Stage 1b: Node Runtime for Target Platform
@@ -75,7 +79,10 @@ WORKDIR /app
 # Install system dependencies
 # Note: libgl1 and libglib2.0-0 are required for OpenCV (used by mineru)
 # Rust is required for building tiktoken and other packages without pre-built wheels
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The default Debian mirror is intermittently unreachable from the build
+# environment; keep the image build reproducible through a reachable mirror.
+RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     build-essential \
@@ -132,7 +139,8 @@ WORKDIR /app
 #       installs with `pip install git+…`, which shells out to git. It is needed
 #       in *this* image and not in the runner: installing is a privileged
 #       main-app action, running is the runner's (Dockerfile.runner).
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     bash \
@@ -309,6 +317,8 @@ echo "[Frontend] 🚀 Starting Next.js frontend on ${FRONTEND_HOST}:${FRONTEND_P
 
 export PORT=${FRONTEND_PORT}
 export HOSTNAME=${FRONTEND_HOST}
+# Next 16 production builds use the Turbopack server runtime by default.
+export TURBOPACK=${TURBOPACK:-1}
 exec node /app/web/server.js
 EOF
 

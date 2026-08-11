@@ -64,7 +64,7 @@ DEFAULT_SIDEBAR_NAV_ORDER = {
 DEFAULT_UI_SETTINGS = {
     # "snow" is the pure-white neutral theme, shown as "Default" in the UI.
     "theme": "snow",
-    "language": "en",
+    "language": "zh",
     "sidebar_description": "✨ Data Intelligence Lab @ HKU",
     "sidebar_nav_order": DEFAULT_SIDEBAR_NAV_ORDER,
     # User-toggleable chat tools. Default = all on; the /settings/tools page
@@ -95,7 +95,7 @@ class SidebarNavOrder(BaseModel):
 
 class UISettings(BaseModel):
     theme: Literal["light", "dark", "glass", "snow"] = "snow"
-    language: Literal["zh", "en"] = "en"
+    language: Literal["zh", "en"] = "zh"
     sidebar_description: Optional[str] = None
     sidebar_nav_order: Optional[SidebarNavOrder] = None
     code_block_theme: Optional[str] = None
@@ -402,6 +402,7 @@ def _provider_choices() -> dict[str, list[dict[str, Any]]]:
                 "base_url": spec.default_api_base,
                 "default_model": spec.default_model,
                 "default_voice": spec.default_voice,
+                "default_response_format": spec.default_response_format,
             }
             for name, spec in TTS_PROVIDERS.items()
         ],
@@ -426,6 +427,8 @@ def _provider_choices() -> dict[str, list[dict[str, Any]]]:
                 "label": spec.label,
                 "base_url": spec.default_api_base,
                 "default_model": spec.default_model,
+                "default_aspect_ratio": spec.default_aspect_ratio,
+                "default_resolution": spec.default_resolution,
             }
             for name, spec in IMAGEGEN_PROVIDERS.items()
         ],

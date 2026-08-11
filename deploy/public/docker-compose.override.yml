@@ -1,0 +1,36 @@
+services:
+  pocketbase:
+    container_name: deeptutor-public-pocketbase
+    ports: !override
+      - "127.0.0.1:18090:8090"
+
+  deeptutor:
+    container_name: deeptutor-public
+    # This file exists only on the server and is ignored by Git via data/.
+    # Keep the provider credential out of the image, source tree and APK.
+    env_file:
+      - path: ./data/runtime/realtime.env
+        required: false
+    ports: !override
+      - "127.0.0.1:18001:8001"
+      - "127.0.0.1:13782:3782"
+
+  sandbox-runner:
+    container_name: deeptutor-public-sandbox-runner
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: deeptutor-public-caddy
+    restart: unless-stopped
+    depends_on:
+      deeptutor:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/public/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+    networks:
+      - deeptutor-network

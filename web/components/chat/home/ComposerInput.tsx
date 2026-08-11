@@ -514,6 +514,7 @@ export const ComposerInput = memo(
           // product limit. Users hit by this cap should be using the
           // attachment path, not the composer body.
           maxLength={32000}
+          aria-label={t("Chat message")}
           suppressHydrationWarning
           placeholder={
             placeholder ??
@@ -524,7 +525,6 @@ export const ComposerInput = memo(
               : t("How can I help you today?"))
           }
           className="w-full resize-none overflow-hidden bg-transparent text-[16px] leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
-          style={{ transition: "height 0.15s ease-out" }}
         />
       </div>
     );

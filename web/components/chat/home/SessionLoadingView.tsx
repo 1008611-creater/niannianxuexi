@@ -48,8 +48,8 @@ export default function SessionLoadingView({
       {/* Logo + spinner */}
       <div className="flex items-center gap-3">
         <img
-          src="/logo_black.png"
-          alt="DeepTutor"
+          src="/niannian-logo.svg"
+          alt="念念 AI"
           width={32}
           height={32}
           className="h-8 w-8 select-none"
