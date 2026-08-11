@@ -6,6 +6,7 @@ import pytest
 
 from deeptutor.core.stream import StreamEvent, StreamEventType
 from deeptutor.services.session.turn_runtime import (
+    _collapse_exact_doubled_answer,
     _clip_text,
     _extract_followup_question_context,
     _extract_memory_references,
@@ -14,6 +15,17 @@ from deeptutor.services.session.turn_runtime import (
     _narration_marker_call_id,
     _should_capture_assistant_content,
 )
+
+
+class TestCollapseExactDoubledAnswer:
+    def test_collapses_only_a_substantial_exact_duplicate(self) -> None:
+        answer = "第一段内容足够长，用来模拟网关把完整回答重复输出的问题。" * 3
+
+        assert _collapse_exact_doubled_answer(answer + answer) == answer
+
+    def test_keeps_short_or_nonidentical_content(self) -> None:
+        assert _collapse_exact_doubled_answer("好好") == "好好"
+        assert _collapse_exact_doubled_answer("甲" * 80 + "乙" * 80) == "甲" * 80 + "乙" * 80
 
 # ---------------------------------------------------------------------------
 # _should_capture_assistant_content

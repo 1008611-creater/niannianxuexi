@@ -24,6 +24,7 @@ from deeptutor.services.voice.adapters.openai_compat import (
     OpenAICompatTTSAdapter,
     OpenRouterTTSAdapter,
 )
+from deeptutor.services.voice.adapters.mimo import MiMoTTSAdapter
 from deeptutor.services.voice.base import (
     build_auth_headers,
     join_audio_path,
@@ -132,6 +133,85 @@ async def test_tts_adapter_raises_on_http_error(monkeypatch: pytest.MonkeyPatch)
     config = TTSConfig(model="m", base_url="https://x/v1", api_key="k", voice="alloy")
     with pytest.raises(VoiceProviderError, match="401"):
         await OpenAICompatTTSAdapter().synthesize("hi", config)
+
+
+@pytest.mark.asyncio
+async def test_mimo_tts_posts_native_chat_completions_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audio = base64.b64encode(b"RIFF-mimo-audio").decode("ascii")
+    resp = httpx.Response(
+        200,
+        json={"choices": [{"message": {"audio": {"data": audio}}}]},
+    )
+    captured = _capture_post(monkeypatch, resp)
+    config = TTSConfig(
+        model="mimo-v2.5-tts",
+        provider_name="mimo",
+        adapter="mimo_tts",
+        base_url="https://api.xiaomimimo.com/v1",
+        api_key="mimo-test-key",
+        voice="冰糖",
+        response_format="wav",
+    )
+
+    result, content_type = await MiMoTTSAdapter().synthesize("请讲解这道题。", config)
+
+    assert result == b"RIFF-mimo-audio"
+    assert content_type == "audio/wav"
+    assert captured["url"] == "https://api.xiaomimimo.com/v1/chat/completions"
+    assert captured["json"] == {
+        "model": "mimo-v2.5-tts",
+        "messages": [{"role": "assistant", "content": "请讲解这道题。"}],
+        "audio": {"format": "wav", "voice": "冰糖"},
+    }
+    assert captured["headers"]["api-key"] == "mimo-test-key"
+    assert "Authorization" not in captured["headers"]
+
+
+@pytest.mark.asyncio
+async def test_mimo_tts_maps_pcm_and_rejects_unsupported_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audio = base64.b64encode(b"pcm").decode("ascii")
+    captured = _capture_post(
+        monkeypatch,
+        httpx.Response(200, json={"choices": [{"message": {"audio": {"data": audio}}}]}),
+    )
+    config = TTSConfig(
+        model="mimo-v2.5-tts",
+        base_url="https://api.xiaomimimo.com/v1",
+        api_key="key",
+        response_format="pcm",
+    )
+    result, content_type = await MiMoTTSAdapter().synthesize("hello", config)
+    assert result == b"pcm"
+    assert content_type == "audio/pcm"
+    assert captured["json"]["audio"]["format"] == "pcm16"
+
+    config.response_format = "mp3"
+    from deeptutor.services.voice.base import VoiceProviderError
+
+    with pytest.raises(VoiceProviderError, match="only these output formats"):
+        await MiMoTTSAdapter().synthesize("hello", config)
+
+
+@pytest.mark.asyncio
+async def test_mimo_tts_rejects_missing_audio_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    _capture_post(
+        monkeypatch,
+        httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]}),
+    )
+    config = TTSConfig(
+        model="mimo-v2.5-tts",
+        base_url="https://api.xiaomimimo.com/v1",
+        api_key="key",
+        response_format="wav",
+    )
+    from deeptutor.services.voice.base import VoiceProviderError
+
+    with pytest.raises(VoiceProviderError, match="message.audio.data"):
+        await MiMoTTSAdapter().synthesize("hello", config)
 
 
 @pytest.mark.asyncio
@@ -325,6 +405,21 @@ def test_resolve_tts_config_picks_openrouter_adapter() -> None:
     cfg = resolve_tts_runtime_config(catalog=catalog)
     assert cfg.provider_name == "openrouter"
     assert cfg.adapter == "openrouter_tts"
+
+
+def test_resolve_tts_config_picks_mimo_defaults() -> None:
+    catalog = _voice_catalog()
+    profile = catalog["services"]["tts"]["profiles"][0]
+    profile["binding"] = "mimo"
+    profile["base_url"] = ""
+    profile["models"][0] = {"id": "m1", "model": "mimo-v2.5-tts"}
+    cfg = resolve_tts_runtime_config(catalog=catalog)
+    assert cfg.provider_name == "mimo"
+    assert cfg.adapter == "mimo_tts"
+    assert cfg.auth_style == "api_key_header"
+    assert cfg.base_url == "https://api.xiaomimimo.com/v1"
+    assert cfg.voice == "冰糖"
+    assert cfg.response_format == "wav"
 
 
 def test_resolve_tts_config_raises_without_model() -> None:

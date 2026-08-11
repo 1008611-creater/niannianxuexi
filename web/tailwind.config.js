@@ -9,8 +9,22 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        serif: ["var(--font-serif)", "Georgia", "serif"],
+        sans: [
+          "var(--font-sans)",
+          "Noto Sans SC",
+          "PingFang SC",
+          "Microsoft YaHei",
+          "system-ui",
+          "sans-serif",
+        ],
+        serif: [
+          "var(--font-serif)",
+          "Noto Serif SC",
+          "Songti SC",
+          "SimSun",
+          "Georgia",
+          "serif",
+        ],
       },
       colors: {
         border: "var(--border)",

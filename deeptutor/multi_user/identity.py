@@ -11,7 +11,7 @@ import threading
 from typing import Any
 from uuid import uuid4
 
-from .models import Role
+from .models import AccessSource, AccessStatus, Role
 from .paths import PROJECT_ROOT, SYSTEM_ROOT, migrate_legacy_multi_user_tree
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ def _canonical_record(
     *,
     default_role: Role = "user",
 ) -> dict[str, Any] | None:
+    default_access_status: AccessStatus = "active" if default_role == "admin" else "pending"
     if isinstance(value, str):
         return {
             "id": new_user_id(),
@@ -51,6 +52,9 @@ def _canonical_record(
             "role": default_role,
             "created_at": utc_now(),
             "disabled": False,
+            "access_status": default_access_status,
+            "access_source": "system" if default_access_status == "active" else None,
+            "paid_until": None,
             "avatar": "",
         }
     if not isinstance(value, dict):
@@ -61,12 +65,23 @@ def _canonical_record(
     role = str(value.get("role") or default_role)
     if role not in {"admin", "user"}:
         role = default_role
+    access_status = str(value.get("access_status") or default_access_status)
+    if access_status not in {"pending", "active", "disabled"}:
+        access_status = default_access_status
+    access_source = value.get("access_source")
+    if access_source not in {"admin", "payment", "system"}:
+        access_source = "system" if access_status == "active" and role == "admin" else None
+    paid_until = value.get("paid_until")
+    paid_until = str(paid_until) if paid_until else None
     return {
         "id": str(value.get("id") or new_user_id()),
         "hash": hashed,
         "role": role,
         "created_at": str(value.get("created_at") or utc_now()),
         "disabled": bool(value.get("disabled", False)),
+        "access_status": access_status,
+        "access_source": access_source,
+        "paid_until": paid_until,
         "avatar": str(value.get("avatar") or ""),
     }
 
@@ -163,6 +178,9 @@ def load_users(  # nosec B107 - empty defaults mean "no env fallback supplied".
                 "role": "admin",
                 "created_at": "",
                 "disabled": False,
+                "access_status": "active",
+                "access_source": "system",
+                "paid_until": None,
             }
         }
 
@@ -177,12 +195,20 @@ def save_user(username: str, hashed_password: str, role: Role = "user") -> dict[
         users = load_users()
         effective_role: Role = "admin" if not users else role
         existing = users.get(username) or {}
+        effective_role: Role = "admin" if not users else role
+        default_access_status: AccessStatus = "active" if effective_role == "admin" else "pending"
+        existing = users.get(username) or {}
         record = {
             "id": str(existing.get("id") or new_user_id()),
             "hash": hashed_password,
             "role": effective_role,
             "created_at": str(existing.get("created_at") or utc_now()),
             "disabled": bool(existing.get("disabled", False)),
+            "access_status": str(existing.get("access_status") or default_access_status),
+            "access_source": existing.get("access_source")
+            if existing.get("access_source") in {"admin", "payment", "system"}
+            else ("system" if default_access_status == "active" else None),
+            "paid_until": str(existing.get("paid_until")) if existing.get("paid_until") else None,
             "avatar": str(existing.get("avatar") or ""),
         }
         users[username] = record
@@ -201,10 +227,35 @@ def list_user_info(  # nosec B107 - empty defaults mean "no env fallback supplie
             "role": record.get("role", "user"),
             "created_at": record.get("created_at", ""),
             "disabled": bool(record.get("disabled", False)),
+            "access_status": effective_access_status(record),
+            "access_source": record.get("access_source"),
+            "paid_until": str(record.get("paid_until")) if record.get("paid_until") else None,
             "avatar": str(record.get("avatar") or ""),
         }
         for username, record in load_users(env_username, env_password_hash).items()
     ]
+
+
+def effective_access_status(record: dict[str, Any]) -> AccessStatus:
+    """Return the enforced status, including expiry of payment-based access."""
+    role = str(record.get("role") or "user")
+    if role == "admin":
+        return "active"
+    if bool(record.get("disabled", False)):
+        return "disabled"
+    status = str(record.get("access_status") or "pending")
+    if status not in {"pending", "active", "disabled"}:
+        return "pending"
+    if status == "active" and record.get("paid_until"):
+        try:
+            expires_at = datetime.fromisoformat(str(record["paid_until"]))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at <= datetime.now(timezone.utc):
+                return "pending"
+        except ValueError:
+            return "pending"
+    return status  # type: ignore[return-value]
 
 
 def get_user(username: str) -> dict[str, Any] | None:
@@ -297,6 +348,32 @@ def set_role(username: str, role: Role) -> bool:
         return False
     users[username]["role"] = role
     _write_users(users)
+    return True
+
+
+def set_access(
+    username: str,
+    access_status: AccessStatus,
+    access_source: AccessSource | None = None,
+    paid_until: str | None = None,
+) -> bool:
+    """Set the user-facing access state without exposing credential fields."""
+    if access_status not in {"pending", "active", "disabled"}:
+        raise ValueError("invalid access status")
+    if access_source not in {None, "admin", "payment", "system"}:
+        raise ValueError("invalid access source")
+    if not USERS_FILE.exists():
+        return False
+    with _USERS_WRITE_LOCK:
+        users = load_users()
+        record = users.get(username)
+        if record is None:
+            return False
+        record["access_status"] = access_status
+        record["access_source"] = access_source if access_status == "active" else None
+        record["paid_until"] = paid_until if access_status == "active" else None
+        record["disabled"] = access_status == "disabled"
+        _write_users(users)
     return True
 
 

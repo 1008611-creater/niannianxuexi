@@ -1,8 +1,10 @@
 """Auth router — login, logout, status, registration, profile, and user-management endpoints."""
 
 from contextvars import Token as _CtxToken
+from datetime import datetime, timezone
 import logging
 import re
+from typing import Literal
 
 from fastapi import (
     APIRouter,
@@ -47,6 +49,7 @@ from deeptutor.services.auth import (
     list_users,
     register_pb,
     set_avatar,
+    set_access,
     set_role,
 )
 from deeptutor.services.codex_auth.contracts import CodexAuthError
@@ -133,6 +136,21 @@ class SetRoleRequest(BaseModel):
         return v
 
 
+class SetAccessRequest(BaseModel):
+    """Payload for the administrator-controlled account access state."""
+
+    access_status: Literal["pending", "active", "disabled"]
+    access_source: Literal["admin", "payment", "system"] | None = None
+    paid_until: datetime | None = None
+
+    @field_validator("paid_until")
+    @classmethod
+    def paid_until_must_be_timezone_aware(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("paid_until must include a timezone")
+        return value
+
+
 class AuthStatusResponse(BaseModel):
     """Response body for the GET /status endpoint."""
 
@@ -143,6 +161,9 @@ class AuthStatusResponse(BaseModel):
     role: str | None = None
     is_admin: bool = False
     avatar: str = ""
+    access_status: Literal["pending", "active", "disabled"] | None = None
+    access_source: Literal["admin", "payment", "system"] | None = None
+    paid_until: str | None = None
 
 
 class UserInfo(BaseModel):
@@ -154,6 +175,9 @@ class UserInfo(BaseModel):
     created_at: str
     disabled: bool = False
     avatar: str = ""
+    access_status: Literal["pending", "active", "disabled"] = "pending"
+    access_source: Literal["admin", "payment", "system"] | None = None
+    paid_until: str | None = None
 
 
 # Markers settable through PUT /profile. Image markers ("img:<version>") are
@@ -284,6 +308,47 @@ async def require_auth(
     return payload
 
 
+def _current_access_metadata(payload: TokenPayload | None) -> dict[str, object]:
+    """Resolve access from the server-side record, never from JWT claims."""
+    if not AUTH_ENABLED or payload is None:
+        return {
+            "access_status": "active",
+            "access_source": "system",
+            "paid_until": None,
+        }
+    if payload.role == "admin":
+        return {"access_status": "active", "access_source": "system", "paid_until": None}
+    info = get_user_info(payload.username)
+    if info is None:
+        # Fail closed for identities that have no local billing/access record.
+        return {"access_status": "pending", "access_source": None, "paid_until": None}
+    return {
+        "access_status": info.get("access_status", "pending"),
+        "access_source": info.get("access_source"),
+        "paid_until": info.get("paid_until"),
+    }
+
+
+def _access_denied_detail(access_status: str) -> str:
+    if access_status == "disabled":
+        return "Account is disabled. Contact an administrator."
+    return "Account is not activated. Complete payment or contact an administrator."
+
+
+async def require_active_access(
+    payload: TokenPayload | None = Depends(require_auth),
+) -> TokenPayload | None:
+    """Protect actual product routes after authentication has succeeded."""
+    metadata = _current_access_metadata(payload)
+    access_status = str(metadata["access_status"])
+    if access_status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_access_denied_detail(access_status),
+        )
+    return payload
+
+
 class _WsAuthFailed:
     """Sentinel: ws_require_auth failed and closed the WebSocket."""
 
@@ -319,6 +384,11 @@ async def ws_require_auth(ws: WebSocket) -> _CtxToken | _WsAuthFailed:
     payload = decode_token(token) if token else None
     if not payload:
         await ws.close(code=4001)
+        return ws_auth_failed
+
+    access_status = str(_current_access_metadata(payload)["access_status"])
+    if access_status != "active":
+        await ws.close(code=4003)
         return ws_auth_failed
 
     return _install_current_user(payload)
@@ -422,6 +492,7 @@ async def auth_status(
         info = get_user_info(payload.username)
         if info:
             avatar = str(info.get("avatar") or "")
+    metadata = _current_access_metadata(payload) if payload else {}
     return AuthStatusResponse(
         enabled=True,
         authenticated=payload is not None,
@@ -430,6 +501,7 @@ async def auth_status(
         role=payload.role if payload else None,
         is_admin=payload.role == "admin" if payload else False,
         avatar=avatar,
+        **metadata,
     )
 
 
@@ -457,6 +529,7 @@ async def login(body: LoginRequest, response: Response) -> dict:
             "username": payload.username,
             "role": payload.role,
             "is_admin": payload.role == "admin",
+            **_current_access_metadata(payload),
         }
 
     # Standard JWT + bcrypt mode
@@ -477,6 +550,7 @@ async def login(body: LoginRequest, response: Response) -> dict:
         "username": result.username,
         "role": result.role,
         "is_admin": result.role == "admin",
+        **_current_access_metadata(result),
     }
 
 
@@ -869,3 +943,55 @@ async def update_user_role(
         f"Admin '{current.username if current else 'local'}' set '{username}' role to {body.role!r}"
     )
     return {"ok": True, "username": username, "role": body.role}
+
+
+@router.put("/users/{username}/access", status_code=status.HTTP_200_OK)
+async def update_user_access(
+    username: str,
+    body: SetAccessRequest,
+    current: TokenPayload = Depends(require_admin),
+) -> dict:
+    """Enable, hold, or disable a user's product access."""
+    if current and username == current.username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot change your own access",
+        )
+    info = get_user_info(username)
+    if info is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if str(info.get("role") or "user") == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin accounts are always active",
+        )
+    if POCKETBASE_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Account access management requires the built-in user store.",
+        )
+    if body.paid_until is not None and body.paid_until <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="paid_until must be in the future",
+        )
+    source = body.access_source if body.access_status == "active" else None
+    if body.access_status == "active" and source is None:
+        source = "admin"
+    paid_until = body.paid_until.isoformat() if body.access_status == "active" and body.paid_until else None
+    if not set_access(username, body.access_status, source, paid_until):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    logger.info(
+        "Admin '%s' set '%s' access to %s (source=%s)",
+        current.username if current else "local",
+        username,
+        body.access_status,
+        source,
+    )
+    return {
+        "ok": True,
+        "username": username,
+        "access_status": body.access_status,
+        "access_source": source,
+        "paid_until": paid_until,
+    }

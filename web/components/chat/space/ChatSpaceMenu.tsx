@@ -215,7 +215,7 @@ export default memo(function ChatSpaceMenu({
       role={isMention ? "listbox" : undefined}
       aria-label={isMention ? t("Reference space") : undefined}
       className={`rounded-xl border border-[var(--border)] bg-[var(--popover)] shadow-lg backdrop-blur-md ${
-        compact ? "w-[280px] py-1.5" : "w-64 p-2"
+        compact ? "w-[280px] py-1.5 max-md:w-full" : "w-64 p-2"
       }`}
     >
       <div className={compact ? "" : "space-y-1"}>

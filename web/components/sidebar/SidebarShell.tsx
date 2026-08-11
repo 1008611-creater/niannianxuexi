@@ -7,11 +7,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAppShell } from "@/context/AppShellContext";
 import {
   BookOpen,
-  BookText,
   Bot,
   Brain,
   ChevronDown,
-  Github,
+  CircleHelp,
   HeartHandshake,
   House,
   LayoutGrid,
@@ -32,6 +31,8 @@ import type { SessionSummary } from "@/lib/session-api";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useCapabilityAccess } from "@/components/access/CapabilityAccessContext";
 import type { Capability } from "@/lib/capability-routes";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
+import { openCurrentPageIntro } from "@/components/layout/PageIntroGuide";
 
 interface NavEntry {
   href: string;
@@ -110,8 +111,6 @@ const SECONDARY_NAV: NavEntry[] = [
   },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
-const GITHUB_REPO_URL = "https://github.com/HKUDS/DeepTutor";
-const DOCS_URL = "https://deeptutor.info/";
 const RECENTS_COLLAPSED_KEY = "deeptutor.sidebar.recentsCollapsed";
 
 interface SidebarShellProps {
@@ -168,6 +167,8 @@ export function SidebarShell({
   const lockedTooltip = t("Locked — contact your administrator to get access.");
   const renderedFooter =
     typeof footerSlot === "function" ? footerSlot(collapsed) : footerSlot;
+  const primaryNav = PRIMARY_NAV;
+  const secondaryNav = SECONDARY_NAV;
   const [recentsCollapsed, setRecentsCollapsed] = useState(false);
 
   // Hydrate Recents collapse from localStorage after first render to stay SSR-safe.
@@ -209,15 +210,15 @@ export function SidebarShell({
         <div className="relative mb-2 flex h-9 w-9 items-center justify-center">
           <Link
             href="/"
-            aria-label="DeepTutor"
+            aria-label={t("Niannian AI")}
             className="flex items-center justify-center transition-opacity duration-150 group-hover/sb:opacity-0"
           >
             <Image
-              src="/logo.png"
-              alt="DeepTutor"
+              src="/niannian-logo.svg"
+              alt={t("Niannian AI")}
               width={22}
               height={22}
-              className="h-[22px] w-[22px] rounded-md"
+              className="h-[22px] w-[22px]"
             />
           </Link>
           <button
@@ -231,8 +232,11 @@ export function SidebarShell({
 
         {/* Primary nav */}
         <nav className="mt-1 flex w-full flex-col items-center gap-1 px-1.5">
-          {PRIMARY_NAV.map((item) => {
-            const active = pathname.startsWith(item.href);
+          {primaryNav.map((item) => {
+            const itemPath = item.href.split("?")[0];
+            const active =
+              pathname === itemPath ||
+              pathname.startsWith(`${itemPath}/`);
             const locked = navLocked(item);
             const description = locked
               ? lockedTooltip
@@ -291,7 +295,7 @@ export function SidebarShell({
         {/* Secondary nav + footer */}
         <div className="flex w-full flex-col items-center gap-1 px-1.5">
           <div className="my-1 h-px w-7 bg-[var(--border)]/40" />
-          {SECONDARY_NAV.map((item) => {
+          {secondaryNav.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
               <Link
@@ -308,27 +312,17 @@ export function SidebarShell({
               </Link>
             );
           })}
+          <LanguageSwitcher compact />
+          <button
+            type="button"
+            onClick={openCurrentPageIntro}
+            aria-label={t("About this page")}
+            title={t("About this page")}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--foreground)]/85 transition-colors hover:bg-[var(--background)]/60"
+          >
+            <CircleHelp size={17} strokeWidth={1.7} />
+          </button>
           {renderedFooter}
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            title={t("Docs") as string}
-            aria-label={t("Docs") as string}
-            className="mt-1 flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)]/70 transition-colors hover:bg-[var(--background)]/50 hover:text-[var(--foreground)]"
-          >
-            <BookText size={15} strokeWidth={1.6} />
-          </a>
-          <a
-            href={GITHUB_REPO_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            title="GitHub"
-            aria-label="GitHub"
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)]/70 transition-colors hover:bg-[var(--background)]/50 hover:text-[var(--foreground)]"
-          >
-            <Github size={15} strokeWidth={1.6} />
-          </a>
           <VersionBadge collapsed />
         </div>
       </aside>
@@ -342,20 +336,15 @@ export function SidebarShell({
       <div className="flex h-14 items-center justify-between px-4">
         <Link href="/" className="group flex items-center gap-1.5">
           <Image
-            src="/logo.png"
-            alt="DeepTutor"
+            src="/niannian-logo.svg"
+            alt={t("Niannian AI")}
             width={22}
             height={22}
             className="h-[22px] w-[22px] transition-transform duration-200 group-hover:scale-105"
           />
-          <Image
-            src="/banner.png"
-            alt="DeepTutor"
-            width={897}
-            height={236}
-            priority
-            className="h-[22px] w-auto transition-transform duration-200 group-hover:scale-105"
-          />
+          <span className="text-[15px] font-semibold tracking-tight text-[var(--foreground)]">
+            {t("Niannian")}
+          </span>
         </Link>
         {/* The rail is a desktop affordance; in the drawer the scrim and the
             top-bar toggle already own "make this go away". */}
@@ -371,8 +360,11 @@ export function SidebarShell({
       {/* Primary nav */}
       <nav className="px-2 pt-1">
         <div className="space-y-px">
-          {PRIMARY_NAV.map((item) => {
-            const active = pathname.startsWith(item.href);
+          {primaryNav.map((item) => {
+            const itemPath = item.href.split("?")[0];
+            const active =
+              pathname === itemPath ||
+              pathname.startsWith(`${itemPath}/`);
             const locked = navLocked(item);
             if (locked) {
               return (
@@ -472,7 +464,7 @@ export function SidebarShell({
 
       {/* Secondary nav + footer */}
       <div className="border-t border-[var(--border)]/40 px-2 py-2">
-        {SECONDARY_NAV.map((item) => {
+        {secondaryNav.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link
@@ -490,30 +482,20 @@ export function SidebarShell({
             </Link>
           );
         })}
-        {renderedFooter}
-        <div className="mt-0.5 flex items-center gap-0.5">
-          <VersionBadge />
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            title={t("Docs") as string}
-            aria-label={t("Docs") as string}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)]/55 transition-colors hover:bg-[var(--background)]/50 hover:text-[var(--muted-foreground)]"
+        <div className="my-1.5 flex items-center justify-between gap-2 px-3">
+          <LanguageSwitcher />
+          <button
+            type="button"
+            onClick={openCurrentPageIntro}
+            aria-label={t("About this page")}
+            title={t("About this page")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--background)]/60 hover:text-[var(--foreground)]"
           >
-            <BookText size={13} strokeWidth={1.7} />
-          </a>
-          <a
-            href={GITHUB_REPO_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            title="GitHub"
-            aria-label="GitHub"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)]/55 transition-colors hover:bg-[var(--background)]/50 hover:text-[var(--muted-foreground)]"
-          >
-            <Github size={13} strokeWidth={1.7} />
-          </a>
+            <CircleHelp size={16} strokeWidth={1.7} />
+          </button>
         </div>
+        {renderedFooter}
+        <div className="mt-0.5 flex items-center gap-0.5"><VersionBadge /></div>
       </div>
     </aside>
   );

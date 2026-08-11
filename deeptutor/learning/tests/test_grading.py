@@ -44,6 +44,33 @@ class TestShortGrading:
     def test_short_fuzzy_fail(self):
         assert grade_answer("completely different", "photosynthesis", "short") is False
 
+    def test_short_numeric_sign_difference_is_not_fuzzy_matched(self):
+        assert grade_answer("x=-4", "x=4", "short") is False
+
+    def test_short_numeric_assignment_matches_same_value(self):
+        assert grade_answer("x = 4", "4", "short") is True
+
+    def test_short_fraction_matches_equivalent_decimal(self):
+        assert grade_answer("1/2", "0.5", "short") is True
+
+    def test_short_equivalent_fractions_match(self):
+        assert grade_answer("2/4", "1/2", "short") is True
+
+    def test_short_arithmetic_expression_matches_value(self):
+        assert grade_answer("1/3 + 1/6", "0.5", "short") is True
+
+    def test_short_parenthesized_expression_matches_value(self):
+        assert grade_answer("3 × (2 + 1)", "9", "short") is True
+
+    def test_short_percentage_matches_equivalent_decimal(self):
+        assert grade_answer("20%", "0.2", "short") is True
+
+    def test_short_full_width_percentage_matches_equivalent_fraction(self):
+        assert grade_answer("25％", "1/4", "short") is True
+
+    def test_short_numeric_expression_does_not_fall_back_to_fuzzy_text_match(self):
+        assert grade_answer("2 + 2", "2 + 3", "short") is False
+
     def test_short_long_expected_no_fuzzy(self):
         long_expected = "a" * 31  # >30 chars, no fuzzy
         assert grade_answer(long_expected, long_expected, "short") is True
@@ -86,11 +113,7 @@ class TestEdgeCases:
 
 
 class TestClassifyError:
-    """Coarse wrong-answer tagging used by the post-answer pipeline.
-
-    Blank means "I didn't know" (metacognitive); anything else is treated as a
-    wrong application. The richer taxonomy is assigned later by the LLM.
-    """
+    """Deterministic wrong-answer tagging used by the post-answer pipeline."""
 
     def test_blank_answer_is_metacognitive(self):
         assert classify_error("") is ErrorType.METACOGNITIVE
@@ -100,6 +123,21 @@ class TestClassifyError:
 
     def test_nonblank_answer_is_application_error(self):
         assert classify_error("the answer is 42") is ErrorType.APPLICATION_ERROR
+
+    def test_opposite_signed_numeric_answer_is_deviation(self):
+        assert classify_error("-3", "3") is ErrorType.UNDERSTANDING_DEVIATION
+
+    def test_opposite_signed_assignment_is_deviation(self):
+        assert classify_error("x = -2", "x=2") is ErrorType.UNDERSTANDING_DEVIATION
+
+    def test_opposite_signed_fraction_is_deviation(self):
+        assert classify_error("-1/2", "0.5") is ErrorType.UNDERSTANDING_DEVIATION
+
+    def test_opposite_signed_percentage_is_deviation(self):
+        assert classify_error("-20%", "0.2") is ErrorType.UNDERSTANDING_DEVIATION
+
+    def test_unrelated_numeric_answer_remains_application_error(self):
+        assert classify_error("5", "2") is ErrorType.APPLICATION_ERROR
 
 
 def _progress_with_kp(kp_type: KnowledgeType = KnowledgeType.CONCEPT) -> LearningProgress:
@@ -159,6 +197,23 @@ class TestGradeAndRecordFailClosed:
 
         assert result is False
         assert progress.quiz_attempts[0].error_type is ErrorType.METACOGNITIVE
+
+    def test_opposite_signed_answer_records_deviation(self, tmp_path):
+        service = LearningService(LearningStore(root=tmp_path))
+        progress = _progress_with_kp()
+
+        result = service.grade_and_record(
+            progress,
+            question_id="q1",
+            knowledge_point_id="kp1",
+            module_id="m1",
+            user_answer="x=-4",
+            expected_answer="x=4",
+        )
+
+        assert result is False
+        assert progress.quiz_attempts[0].error_type is ErrorType.UNDERSTANDING_DEVIATION
+        assert progress.error_records[0].error_type is ErrorType.UNDERSTANDING_DEVIATION
 
     def test_correct_answer_records_and_caps_single_attempt_mastery(self, tmp_path):
         service = LearningService(LearningStore(root=tmp_path))

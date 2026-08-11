@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 
 /**
  * Root page now redirects to /home.
@@ -9,6 +10,7 @@ import { useRouter } from "next/navigation";
  */
 export default function HomePage() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -26,5 +28,14 @@ export default function HomePage() {
     router.replace(target);
   }, [router]);
 
-  return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-6 text-sm text-[var(--muted-foreground)]"
+      aria-busy="true"
+    >
+      {t("Opening Niannian...")}
+    </div>
+  );
 }

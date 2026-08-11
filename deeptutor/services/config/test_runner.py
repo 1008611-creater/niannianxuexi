@@ -523,12 +523,23 @@ class ConfigTestRunner:
         run.emit(
             "info",
             f"Resolved model `{resolved.model}` (provider `{resolved.provider_name}`, "
-            f"size `{resolved.size or '(default)'}`).",
+            f"adapter `{resolved.adapter}`, size `{resolved.size or '(default)'}`).",
         )
         run.emit("info", f"Request target: {resolved.base_url}")
+        if resolved.provider_name == "runninghub_image2":
+            run.emit(
+                "info",
+                f"Image2 references configured: {len(resolved.reference_image_urls)} public URL(s); "
+                f"aspect ratio `{resolved.aspect_ratio or '1:1'}`, resolution `{resolved.resolution}`.",
+            )
+            if not resolved.reference_image_urls:
+                raise ValueError(
+                    "RunningHub Image2 requires at least one public reference image URL. "
+                    "Add one in Settings > Image Generation before running the test."
+                )
         run.emit("info", "Generating a single test image (this is a billable call).")
         images = await generate_image(
-            "A small minimalist test icon of a blue book on a white background.",
+            "一张简洁的蓝色书本测试图片，白色背景，构图清晰。",
             catalog=catalog,
             n=1,
         )

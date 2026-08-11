@@ -16,6 +16,9 @@ export interface AuthStatus {
   is_admin?: boolean;
   /** Avatar marker: "", "icon:<name>:<color>", or "img:<version>". */
   avatar?: string;
+  access_status?: "pending" | "active" | "disabled";
+  access_source?: "admin" | "payment" | "system" | null;
+  paid_until?: string | null;
 }
 
 /**

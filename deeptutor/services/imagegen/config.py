@@ -32,8 +32,15 @@ class ImagegenConfig:
     quality: str = ""  # e.g. "standard" | "hd"
     style: str = ""  # e.g. "natural" | "vivid"
     response_format: str = ""  # "" | "url" | "b64_json"
+    # RunningHub Image2 requires at least one public reference image URL.
+    reference_image_urls: list[str] = field(default_factory=list)
+    aspect_ratio: str = ""  # e.g. "1:1" | "9:16" | "16:9"
+    resolution: str = "4k"  # RunningHub Image2 defaults to the low-price 4K route.
+    tools: list[str] = field(default_factory=lambda: ["image_generation"])
     # Image generation is slow; allow generous wall-clock per request.
     request_timeout: int = 120
+    poll_interval: float = 5.0
+    poll_timeout: int = 600
 
 
 __all__ = ["ImagegenConfig"]

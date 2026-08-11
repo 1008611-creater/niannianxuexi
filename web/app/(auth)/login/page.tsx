@@ -53,7 +53,7 @@ function LoginPageContent() {
       {/* Logo / Title */}
       <div className="text-center mb-8">
         <h1 className="font-serif text-2xl font-semibold text-[var(--foreground)] tracking-tight">
-          DeepTutor
+          念念
         </h1>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
           {t("Sign in to your account")}
@@ -90,7 +90,7 @@ function LoginPageContent() {
                          placeholder:text-[var(--muted-foreground)]
                          focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent
                          transition-shadow text-sm"
-              placeholder="you@example.com"
+              placeholder={t("Email or username")}
             />
           </div>
 
@@ -151,18 +151,20 @@ function LoginPageContent() {
       </p>
 
       <p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">
-        DeepTutor · Agent-Native Learning
+        念念 · 通用 AI Agent
       </p>
     </div>
   );
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation();
+
   return (
     <Suspense
       fallback={
         <div className="w-full max-w-sm text-center text-sm text-[var(--muted-foreground)]">
-          Loading sign in...
+          {t("Loading sign in...")}
         </div>
       }
     >

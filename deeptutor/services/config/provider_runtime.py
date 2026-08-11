@@ -212,13 +212,13 @@ class VoiceProviderSpec:
     auth_style: str = AUTH_BEARER
     default_model: str = ""
     default_voice: str = ""  # TTS only
+    default_response_format: str = "mp3"  # TTS only
     request_style: str = STT_MULTIPART  # STT only
     is_local: bool = False
 
 
-# Voice providers in the OpenAI-compatible cluster. A single adapter covers all
-# of these; bespoke providers (DashScope native, ElevenLabs, Gemini, Deepgram)
-# would register their own ``adapter`` value once implemented.
+# Voice providers in the OpenAI-compatible cluster. Bespoke wire formats use a
+# dedicated adapter, such as MiMo's chat-completions TTS endpoint.
 TTS_PROVIDERS: dict[str, VoiceProviderSpec] = {
     "openai": VoiceProviderSpec(
         label="OpenAI",
@@ -244,6 +244,15 @@ TTS_PROVIDERS: dict[str, VoiceProviderSpec] = {
         default_api_base="https://api.siliconflow.cn/v1",
         default_model="FunAudioLLM/CosyVoice2-0.5B",
         default_voice="FunAudioLLM/CosyVoice2-0.5B:alex",
+    ),
+    "mimo": VoiceProviderSpec(
+        label="Xiaomi MiMo",
+        default_api_base="https://api.xiaomimimo.com/v1",
+        adapter="mimo_tts",
+        auth_style=AUTH_API_KEY_HEADER,
+        default_model="mimo-v2.5-tts",
+        default_voice="冰糖",
+        default_response_format="wav",
     ),
     "azure_openai": VoiceProviderSpec(
         label="Azure OpenAI",
@@ -341,6 +350,8 @@ class GenerationProviderSpec:
     auth_style: str = AUTH_BEARER
     default_model: str = ""
     is_local: bool = False
+    default_aspect_ratio: str = ""
+    default_resolution: str = ""
 
 
 # Image-generation providers in the OpenAI-compatible cluster. A single adapter
@@ -386,6 +397,14 @@ IMAGEGEN_PROVIDERS: dict[str, GenerationProviderSpec] = {
         default_api_base="",
         adapter="chat_completions",
         default_model="",
+    ),
+    "runninghub_image2": GenerationProviderSpec(
+        label="RunningHub Image2（低价）",
+        default_api_base="https://www.runninghub.cn",
+        adapter="runninghub_image2",
+        default_model="rhart-image-g-2",
+        default_aspect_ratio="1:1",
+        default_resolution="4k",
     ),
 }
 
@@ -520,6 +539,18 @@ def _to_headers(value: Any) -> dict[str, str]:
         if isinstance(parsed, dict):
             return {str(k): str(v) for k, v in parsed.items() if str(k).strip() and v is not None}
     return {}
+
+
+def _to_url_list(value: Any) -> list[str]:
+    """Normalize a model's public reference URL field."""
+    if isinstance(value, list):
+        raw_values = value
+    elif isinstance(value, str):
+        raw_values = value.replace(",", "\n").splitlines()
+    else:
+        raw_values = []
+    urls = [_as_str(item) for item in raw_values]
+    return list(dict.fromkeys(url for url in urls if url))
 
 
 def _is_local_base_url(base_url: str | None) -> bool:
@@ -898,7 +929,7 @@ def resolve_tts_runtime_config(
     if not api_key and spec.is_local:
         api_key = "sk-no-key-required"
     voice = _as_str((model or {}).get("voice")) or spec.default_voice
-    response_format = _as_str((model or {}).get("response_format")) or "mp3"
+    response_format = _as_str((model or {}).get("response_format")) or spec.default_response_format
 
     return TTSConfig(
         model=resolved_model,
@@ -987,6 +1018,12 @@ def resolve_imagegen_runtime_config(
         quality=_as_str((model or {}).get("quality")),
         style=_as_str((model or {}).get("style")),
         response_format=_as_str((model or {}).get("response_format")),
+        reference_image_urls=_to_url_list(
+            (model or {}).get("reference_image_urls")
+            or (model or {}).get("image_urls")
+        ),
+        aspect_ratio=_as_str((model or {}).get("aspect_ratio")) or spec.default_aspect_ratio,
+        resolution=_as_str((model or {}).get("resolution")) or spec.default_resolution or "4k",
     )
 
 

@@ -21,6 +21,9 @@ async def generate_image(
     size: str | None = None,
     quality: str | None = None,
     style: str | None = None,
+    reference_image_urls: list[str] | None = None,
+    aspect_ratio: str | None = None,
+    resolution: str | None = None,
     n: int = 1,
 ) -> list[tuple[bytes, str]]:
     """Generate ``n`` images for ``prompt`` using the active imagegen selection.
@@ -40,6 +43,12 @@ async def generate_image(
         config.quality = quality
     if style:
         config.style = style
+    if reference_image_urls is not None:
+        config.reference_image_urls = reference_image_urls
+    if aspect_ratio:
+        config.aspect_ratio = aspect_ratio
+    if resolution:
+        config.resolution = resolution
     adapter = get_imagegen_adapter(config.adapter)
     return await adapter.generate(prompt, config, n=max(1, n))
 

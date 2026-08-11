@@ -1,0 +1,12 @@
+.git
+data
+.venv
+web/node_modules
+web/.next
+.pytest_cache
+audit
+output
+*.tar.gz
+.tmp*
+phone-current.png
+niannian-ui.xml

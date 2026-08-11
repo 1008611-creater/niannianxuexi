@@ -2,6 +2,7 @@ import UtilitySidebar from "@/components/sidebar/UtilitySidebar";
 import AppShell from "@/components/layout/AppShell";
 import { CapabilityAccessProvider } from "@/components/access/CapabilityAccessContext";
 import CapabilityGate from "@/components/access/CapabilityGate";
+import AccountAccessGate from "@/components/access/AccountAccessGate";
 
 export default function UtilityLayout({
   children,
@@ -10,9 +11,11 @@ export default function UtilityLayout({
 }>) {
   return (
     <CapabilityAccessProvider>
-      <AppShell sidebar={<UtilitySidebar />}>
-        <CapabilityGate>{children}</CapabilityGate>
-      </AppShell>
+        <AppShell sidebar={<UtilitySidebar />}>
+          <AccountAccessGate>
+            <CapabilityGate>{children}</CapabilityGate>
+          </AccountAccessGate>
+        </AppShell>
     </CapabilityAccessProvider>
   );
 }

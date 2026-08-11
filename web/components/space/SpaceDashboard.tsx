@@ -221,12 +221,12 @@ export default function SpaceDashboard() {
     <div>
       <header className="mb-8">
         <h1 className="font-serif text-[24px] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-          {tr({ zh: "学习空间", en: "Learning Space" })}
+          {tr({ zh: "AI Agent 工作空间", en: "AI Agent Workspace" })}
         </h1>
         <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-[var(--muted-foreground)]">
           {tr({
-            zh: "你的对话、智能体、笔记与练习，集中在一处 —— 从这里进入。",
-            en: "Your conversations, agents, notebooks, and practice in one place — enter from here.",
+            zh: "你的对话、智能体、资料与工具，集中在一处 —— 从这里开始。",
+            en: "Your conversations, agents, materials, and tools in one place — start here.",
           })}
         </p>
       </header>

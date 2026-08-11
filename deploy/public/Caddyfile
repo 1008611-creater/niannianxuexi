@@ -1,0 +1,10 @@
+tutor.cauai.fun {
+    encode gzip
+
+    # Realtime voice is a browser WebSocket. Route this upgrade directly to
+    # FastAPI instead of relying on the Next.js HTTP rewrite middleware.
+    @realtime_tutor path /api/v1/realtime/*
+    reverse_proxy @realtime_tutor deeptutor:8001
+
+    reverse_proxy deeptutor:3782
+}

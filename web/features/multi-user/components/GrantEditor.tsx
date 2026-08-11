@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import McpToolGroups from "@/components/common/McpToolGroups";
 import { toggleToolName as toggleName } from "@/lib/mcp-tool-groups";
 import { fetchAdminResources, fetchUserGrant, saveUserGrant } from "../api";
@@ -57,7 +58,7 @@ function CheckRow({
   onToggle: () => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--border)]/60 p-2 text-[var(--foreground)]">
+    <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-[var(--border)]/60 p-2 text-[var(--foreground)] touch-manipulation sm:min-h-0">
       <input
         type="checkbox"
         checked={checked}
@@ -88,16 +89,18 @@ function ModeSwitch({
   disabled,
   onDefault,
   onCustom,
-  defaultLabel = "Default · all",
+  defaultLabel,
+  customLabel,
 }: {
   isCustom: boolean;
   disabled: boolean;
   onDefault: () => void;
   onCustom: () => void;
-  defaultLabel?: string;
+  defaultLabel: string;
+  customLabel: string;
 }) {
   const base =
-    "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45";
+    "min-h-10 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors touch-manipulation disabled:cursor-not-allowed disabled:opacity-45 sm:min-h-0 sm:py-0.5";
   return (
     <div className="mb-2 inline-flex gap-1 rounded-lg bg-[var(--muted)]/50 p-0.5">
       <button
@@ -122,13 +125,14 @@ function ModeSwitch({
             : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
         }`}
       >
-        Custom
+        {customLabel}
       </button>
     </div>
   );
 }
 
 export function GrantEditor({ userId }: { userId: string }) {
+  const { t } = useTranslation();
   const [resources, setResources] = useState<MultiUserResources | null>(null);
   const [grant, setGrant] = useState<GrantPayload>(() => emptyGrant(userId));
   const [loading, setLoading] = useState(true);
@@ -148,7 +152,7 @@ export function GrantEditor({ userId }: { userId: string }) {
       .catch((error) => {
         setSaveState("error");
         setMessage(
-          error instanceof Error ? error.message : "Failed to load grants",
+          error instanceof Error ? error.message : t("Failed to load grants"),
         );
       })
       .finally(() => {
@@ -157,7 +161,7 @@ export function GrantEditor({ userId }: { userId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [t, userId]);
 
   const currentFingerprint = useMemo(() => grantFingerprint(grant), [grant]);
   const dirty =
@@ -292,24 +296,24 @@ export function GrantEditor({ userId }: { userId: string }) {
       setGrant(saved);
       setSavedFingerprint(grantFingerprint(saved));
       setSaveState("saved");
-      setMessage("Saved just now");
+      setMessage(t("Saved just now"));
     } catch (error) {
       setSaveState("error");
-      setMessage(error instanceof Error ? error.message : "Failed to save");
+      setMessage(error instanceof Error ? error.message : t("Failed to save"));
     }
   }
 
   const status = loading
-    ? "Loading assignments..."
+    ? t("Loading assignments...")
     : saveState === "saving"
-      ? "Saving changes..."
+      ? t("Saving changes...")
       : saveState === "error"
-        ? message || "Failed to save"
+        ? message || t("Failed to save")
         : saveState === "saved" && !dirty
-          ? message || "Saved just now"
+          ? message || t("Saved just now")
           : dirty
-            ? "Unsaved changes"
-            : "Ready";
+            ? t("Unsaved changes")
+            : t("Ready");
 
   const statusTone =
     saveState === "error"
@@ -320,19 +324,21 @@ export function GrantEditor({ userId }: { userId: string }) {
 
   const toolsSummary =
     grant.enabled_tools === null
-      ? "all tools"
-      : `${grant.enabled_tools.length} tools`;
+      ? t("all tools")
+      : t("{{count}} tools", { count: grant.enabled_tools.length });
   // MCP tools deny-by-default for non-admin users: ``null`` grants none until
   // the admin switches to Custom and picks specific tool names.
   const mcpSummary =
-    grant.mcp_tools === null ? "no MCP" : `${grant.mcp_tools.length} MCP`;
+    grant.mcp_tools === null
+      ? t("no MCP")
+      : t("{{count}} MCP", { count: grant.mcp_tools.length });
 
   if (loading && !resources) {
     return (
       <div className="border-t border-[var(--border)] bg-[var(--background)]/40 p-4">
         <div className="flex h-[420px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card)] text-sm text-[var(--muted-foreground)]">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading assignments...
+          {t("Loading assignments...")}
         </div>
       </div>
     );
@@ -345,25 +351,26 @@ export function GrantEditor({ userId }: { userId: string }) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                Assign access
+                {t("Assign access")}
               </h2>
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-                Admin resources stay linked server-side; users only receive
-                allowed access.
+                {t(
+                  "Admin resources stay linked server-side; users only receive allowed access.",
+                )}
               </p>
             </div>
             <div className="flex flex-wrap gap-1.5 text-[11px] text-[var(--muted-foreground)]">
               <span className="rounded-full bg-[var(--muted)]/60 px-2 py-1">
-                {selectedModelCount} models
+                {t("{{count}} models", { count: selectedModelCount })}
               </span>
               <span className="rounded-full bg-[var(--muted)]/60 px-2 py-1">
-                {kbIds.size} KBs
+                {t("{{count}} KBs", { count: kbIds.size })}
               </span>
               <span className="rounded-full bg-[var(--muted)]/60 px-2 py-1">
-                {skillIds.size} skills
+                {t("{{count}} skills", { count: skillIds.size })}
               </span>
               <span className="rounded-full bg-[var(--muted)]/60 px-2 py-1">
-                {partnerIds.size} partners
+                {t("{{count}} partners", { count: partnerIds.size })}
               </span>
               <span className="rounded-full bg-[var(--muted)]/60 px-2 py-1">
                 {toolsSummary}
@@ -378,7 +385,7 @@ export function GrantEditor({ userId }: { userId: string }) {
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 [scrollbar-gutter:stable]">
           <div className="grid gap-5 md:grid-cols-3">
             <section className="min-w-0">
-              <SectionTitle>Models</SectionTitle>
+              <SectionTitle>{t("Models")}</SectionTitle>
               <div className="space-y-1.5 text-xs">
                 {(resources?.models.llm || []).map((profile) => (
                   <div
@@ -413,7 +420,7 @@ export function GrantEditor({ userId }: { userId: string }) {
               </div>
             </section>
             <section className="min-w-0">
-              <SectionTitle>Knowledge</SectionTitle>
+              <SectionTitle>{t("Knowledge")}</SectionTitle>
               <div className="space-y-1.5 text-xs">
                 {(resources?.knowledge_bases || []).map((kb) => (
                   <CheckRow
@@ -427,7 +434,7 @@ export function GrantEditor({ userId }: { userId: string }) {
               </div>
             </section>
             <section className="min-w-0">
-              <SectionTitle>Skills</SectionTitle>
+              <SectionTitle>{t("Skills")}</SectionTitle>
               <div className="space-y-1.5 text-xs">
                 {(resources?.skills || []).map((skill) => (
                   <CheckRow
@@ -441,11 +448,13 @@ export function GrantEditor({ userId }: { userId: string }) {
               </div>
             </section>
             <section className="min-w-0">
-              <SectionTitle>Partners</SectionTitle>
+              <SectionTitle>{t("Partners")}</SectionTitle>
               <div className="space-y-1.5 text-xs">
                 {(resources?.partners || []).length === 0 ? (
                   <p className="px-1 text-[11px] leading-relaxed text-[var(--muted-foreground)]">
-                    No partners yet. Create one under Partners to assign it.
+                    {t(
+                      "No partners yet. Create one under Partners to assign it.",
+                    )}
                   </p>
                 ) : (
                   (resources?.partners || []).map((partner) => (
@@ -468,10 +477,12 @@ export function GrantEditor({ userId }: { userId: string }) {
             </section>
 
             <section className="min-w-0">
-              <SectionTitle>System tools</SectionTitle>
+              <SectionTitle>{t("System tools")}</SectionTitle>
               <ModeSwitch
                 isCustom={grant.enabled_tools !== null}
                 disabled={controlsDisabled}
+                defaultLabel={t("Default · all")}
+                customLabel={t("Custom")}
                 onDefault={() => setToolList("enabled_tools", null)}
                 onCustom={() =>
                   setToolList(
@@ -498,11 +509,12 @@ export function GrantEditor({ userId }: { userId: string }) {
               )}
             </section>
             <section className="min-w-0">
-              <SectionTitle>MCP tools</SectionTitle>
+                <SectionTitle>{t("MCP tools")}</SectionTitle>
               <ModeSwitch
                 isCustom={grant.mcp_tools !== null}
                 disabled={controlsDisabled}
-                defaultLabel="Default · none"
+                defaultLabel={t("Default · none")}
+                customLabel={t("Custom")}
                 onDefault={() => setToolList("mcp_tools", null)}
                 // Custom starts empty: the admin picks the services to assign,
                 // rather than un-picking hundreds of tools they never meant to
@@ -511,8 +523,9 @@ export function GrantEditor({ userId }: { userId: string }) {
               />
               {grant.mcp_tools === null ? (
                 <p className="px-1 text-[11px] leading-relaxed text-[var(--muted-foreground)]">
-                  MCP tools proxy host-side capabilities, so they stay denied by
-                  default. Switch to Custom to assign specific services.
+                  {t(
+                    "MCP tools proxy host-side capabilities, so they stay denied by default. Switch to Custom to assign specific services.",
+                  )}
                 </p>
               ) : null}
               {grant.mcp_tools !== null &&
@@ -533,17 +546,17 @@ export function GrantEditor({ userId }: { userId: string }) {
                             ),
                           )
                         }
-                        className="rounded px-1.5 py-0.5 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+            className="min-h-10 rounded px-2.5 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 touch-manipulation sm:min-h-0 sm:py-0.5"
                       >
-                        All
+                        {t("All")}
                       </button>
                       <button
                         type="button"
                         disabled={controlsDisabled}
                         onClick={() => setToolList("mcp_tools", [])}
-                        className="rounded px-1.5 py-0.5 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+            className="min-h-10 rounded px-2.5 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 touch-manipulation sm:min-h-0 sm:py-0.5"
                       >
-                        None
+                        {t("None")}
                       </button>
                     </div>
                     <McpToolGroups
@@ -565,16 +578,18 @@ export function GrantEditor({ userId }: { userId: string }) {
                   </div>
                 ) : (
                   <p className="text-xs text-[var(--muted-foreground)]">
-                    No MCP servers configured.
+                    {t("No MCP servers configured.")}
                   </p>
                 ))}
             </section>
             <section className="min-w-0">
-              <SectionTitle>Code execution</SectionTitle>
+              <SectionTitle>{t("Code execution")}</SectionTitle>
               <div className="space-y-1.5 text-xs">
                 <CheckRow
-                  label="Allow code execution"
-                  description="Follows the deployment sandbox policy. Uncheck to disable exec for this user."
+                  label={t("Allow code execution")}
+                  description={t(
+                    "Follows the deployment sandbox policy. Uncheck to disable exec for this user.",
+                  )}
                   checked={grant.exec_enabled !== false}
                   disabled={controlsDisabled}
                   onToggle={() =>
@@ -605,7 +620,7 @@ export function GrantEditor({ userId }: { userId: string }) {
           <button
             onClick={save}
             disabled={controlsDisabled || !dirty}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--foreground)] px-3 py-1.5 text-xs font-medium text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--foreground)] px-3 text-xs font-medium text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45 touch-manipulation sm:min-h-0 sm:py-1.5"
           >
             {saving ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -615,10 +630,10 @@ export function GrantEditor({ userId }: { userId: string }) {
               <Save className="h-3 w-3" />
             )}
             {saving
-              ? "Saving..."
-              : saveState === "saved" && !dirty
-                ? "Saved"
-                : "Save assignments"}
+              ? t("Saving...")
+                : saveState === "saved" && !dirty
+                ? t("Saved")
+                : t("Save assignments")}
           </button>
         </div>
       </div>
