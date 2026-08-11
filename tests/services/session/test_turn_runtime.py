@@ -6,8 +6,8 @@ import pytest
 
 from deeptutor.core.stream import StreamEvent, StreamEventType
 from deeptutor.services.session.turn_runtime import (
-    _collapse_exact_doubled_answer,
     _clip_text,
+    _collapse_exact_doubled_answer,
     _extract_followup_question_context,
     _extract_memory_references,
     _extract_persist_user_message,
@@ -26,6 +26,7 @@ class TestCollapseExactDoubledAnswer:
     def test_keeps_short_or_nonidentical_content(self) -> None:
         assert _collapse_exact_doubled_answer("好好") == "好好"
         assert _collapse_exact_doubled_answer("甲" * 80 + "乙" * 80) == "甲" * 80 + "乙" * 80
+
 
 # ---------------------------------------------------------------------------
 # _should_capture_assistant_content

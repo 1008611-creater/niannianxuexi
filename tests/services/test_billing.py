@@ -52,7 +52,9 @@ def test_redeem_request_id_cannot_be_reused_by_another_user(billing_root: Path) 
         billing.redeem_voucher("u_other", "DT-TEST-0006", request_id="shared-request")
 
 
-def test_reservation_settlement_refunds_unused_balance(billing_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reservation_settlement_refunds_unused_balance(
+    billing_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     billing.import_vouchers("DT-M-399", ["DT-TEST-0003"])
     billing.redeem_voucher("u_student", "DT-TEST-0003", request_id="request-3")
     monkeypatch.setattr(billing, "_current_payment_user", lambda user_id: True)
@@ -89,10 +91,14 @@ def test_redeem_grants_realtime_voice_minutes(billing_root: Path) -> None:
     assert result["voice_balance_seconds"] == 1_800
 
 
-def test_voice_reservation_refunds_unused_seconds(billing_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_voice_reservation_refunds_unused_seconds(
+    billing_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     billing.import_vouchers("DT-M-399", ["DT-VOICE-0002"])
     billing.redeem_voucher("u_student", "DT-VOICE-0002", request_id="voice-request-2")
-    monkeypatch.setattr(billing, "get_current_user", lambda: type("User", (), {"is_admin": False})())
+    monkeypatch.setattr(
+        billing, "get_current_user", lambda: type("User", (), {"is_admin": False})()
+    )
 
     reservation = billing.reserve_voice_session("u_student", "voice-session-1", 600)
     assert reservation == {"reserved_seconds": 600, "remaining_seconds": 1_200}

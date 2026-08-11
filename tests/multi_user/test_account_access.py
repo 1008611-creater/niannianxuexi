@@ -28,10 +28,14 @@ def test_payment_access_expires_and_disabled_state_is_enforced(mu_isolated_root,
 
     seed_user("alice", role="admin")
     seed_user("bob")
-    assert set_access("bob", "active", "payment", (datetime.now(timezone.utc) + timedelta(days=1)).isoformat())
+    assert set_access(
+        "bob", "active", "payment", (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    )
     assert effective_access_status(load_users()["bob"]) == "active"
 
-    assert set_access("bob", "active", "payment", (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat())
+    assert set_access(
+        "bob", "active", "payment", (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+    )
     assert effective_access_status(load_users()["bob"]) == "pending"
 
     assert set_access("bob", "disabled")

@@ -379,7 +379,6 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 from deeptutor.api.routers.auth import (  # noqa: E402
     require_active_access,
     require_admin,
-    require_auth,
 )
 
 _auth = [Depends(require_active_access)]

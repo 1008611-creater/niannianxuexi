@@ -214,10 +214,16 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         )
         columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(plans)").fetchall()}
         if "voice_quota_seconds" not in columns:
-            conn.execute("ALTER TABLE plans ADD COLUMN voice_quota_seconds INTEGER NOT NULL DEFAULT 0")
-        account_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(quota_accounts)").fetchall()}
+            conn.execute(
+                "ALTER TABLE plans ADD COLUMN voice_quota_seconds INTEGER NOT NULL DEFAULT 0"
+            )
+        account_columns = {
+            str(row[1]) for row in conn.execute("PRAGMA table_info(quota_accounts)").fetchall()
+        }
         if "voice_balance_seconds" not in account_columns:
-            conn.execute("ALTER TABLE quota_accounts ADD COLUMN voice_balance_seconds INTEGER NOT NULL DEFAULT 0")
+            conn.execute(
+                "ALTER TABLE quota_accounts ADD COLUMN voice_balance_seconds INTEGER NOT NULL DEFAULT 0"
+            )
         now = _now()
         for plan in DEFAULT_PLANS:
             conn.execute(
@@ -320,7 +326,9 @@ def list_plans(*, include_disabled: bool = False) -> list[dict[str, Any]]:
         conn.close()
 
 
-def import_vouchers(plan_code: str, codes: list[str], *, batch_id: str | None = None) -> dict[str, Any]:
+def import_vouchers(
+    plan_code: str, codes: list[str], *, batch_id: str | None = None
+) -> dict[str, Any]:
     cleaned = [_normalize_code(code) for code in codes if str(code or "").strip()]
     if not cleaned:
         raise BillingError("至少提供一张卡密。")
@@ -331,7 +339,9 @@ def import_vouchers(plan_code: str, codes: list[str], *, batch_id: str | None = 
         raise BillingError("批次号格式不正确。")
 
     with _transaction() as conn:
-        plan = conn.execute("SELECT code FROM plans WHERE code = ? AND enabled = 1", (plan_code,)).fetchone()
+        plan = conn.execute(
+            "SELECT code FROM plans WHERE code = ? AND enabled = 1", (plan_code,)
+        ).fetchone()
         if plan is None:
             raise BillingError("套餐不存在或已停用。")
         inserted = 0
@@ -440,7 +450,9 @@ def redeem_voucher(user_id: str, code: str, *, request_id: str) -> dict[str, Any
         ).fetchone()
         if voucher is None or voucher["status"] != "available":
             raise BillingError("卡密无效、已使用或已作废。")
-        plan = conn.execute("SELECT * FROM plans WHERE code = ? AND enabled = 1", (voucher["plan_code"],)).fetchone()
+        plan = conn.execute(
+            "SELECT * FROM plans WHERE code = ? AND enabled = 1", (voucher["plan_code"],)
+        ).fetchone()
         if plan is None:
             raise BillingError("该卡密对应的套餐已停用，请联系管理员。")
         now_dt = datetime.now(timezone.utc)
@@ -477,14 +489,25 @@ def redeem_voucher(user_id: str, code: str, *, request_id: str) -> dict[str, Any
             (redemption_id, voucher["id"], user_id, plan["code"], now, request_id),
         )
         if existing:
-            conn.execute("UPDATE memberships SET status = 'superseded' WHERE id = ?", (existing["id"],))
+            conn.execute(
+                "UPDATE memberships SET status = 'superseded' WHERE id = ?", (existing["id"],)
+            )
         conn.execute(
             """
             INSERT INTO memberships
                 (id, user_id, plan_code, membership_type, starts_at, expires_at, source, status, redemption_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, 'payment', 'active', ?, ?)
             """,
-            (membership_id, user_id, plan["code"], membership_type, now, expires_at, redemption_id, now),
+            (
+                membership_id,
+                user_id,
+                plan["code"],
+                membership_type,
+                now,
+                expires_at,
+                redemption_id,
+                now,
+            ),
         )
         _ledger(
             conn,
@@ -536,7 +559,9 @@ def _account_snapshot(conn: sqlite3.Connection, user_id: str) -> dict[str, Any]:
     membership = _active_membership(conn, user_id)
     plan = None
     if membership:
-        plan = conn.execute("SELECT * FROM plans WHERE code = ?", (membership["plan_code"],)).fetchone()
+        plan = conn.execute(
+            "SELECT * FROM plans WHERE code = ?", (membership["plan_code"],)
+        ).fetchone()
     balance = int(account["text_balance_k_tokens"])
     voice_balance = int(account["voice_balance_seconds"])
     return {
@@ -607,7 +632,9 @@ def void_voucher(voucher_id: str, *, admin_id: str, reason: str) -> bool:
         return bool(changed)
 
 
-def adjust_quota(user_id: str, delta_k_tokens: int, *, admin_id: str, reason: str) -> dict[str, Any]:
+def adjust_quota(
+    user_id: str, delta_k_tokens: int, *, admin_id: str, reason: str
+) -> dict[str, Any]:
     if not reason.strip():
         raise BillingError("额度调整必须填写原因。")
     if abs(int(delta_k_tokens)) > 1_000_000:
@@ -624,10 +651,16 @@ def adjust_quota(user_id: str, delta_k_tokens: int, *, admin_id: str, reason: st
             "INSERT INTO admin_actions(id, admin_id, target, action, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (f"a_{uuid4().hex}", admin_id, user_id, "adjust_quota", reason[:500], _now()),
         )
-    return {"user_id": user_id, "text_balance_k_tokens": balance, "text_balance_points": round(balance / 10, 1)}
+    return {
+        "user_id": user_id,
+        "text_balance_k_tokens": balance,
+        "text_balance_points": round(balance / 10, 1),
+    }
 
 
-def adjust_voice_quota(user_id: str, delta_seconds: int, *, admin_id: str, reason: str) -> dict[str, Any]:
+def adjust_voice_quota(
+    user_id: str, delta_seconds: int, *, admin_id: str, reason: str
+) -> dict[str, Any]:
     if not reason.strip():
         raise BillingError("实时语音额度调整必须填写原因。")
     if abs(int(delta_seconds)) > 7_200_000:
@@ -686,7 +719,9 @@ def reserve_voice_session(user_id: str, session_id: str, requested_seconds: int)
         if balance <= 0:
             raise BillingError("实时语音额度不足，请购买或兑换新的套餐。")
         reserved = min(balance, int(requested_seconds))
-        _voice_ledger(conn, user_id=user_id, delta=-reserved, reason="reserve", reference_id=session_id)
+        _voice_ledger(
+            conn, user_id=user_id, delta=-reserved, reason="reserve", reference_id=session_id
+        )
         conn.execute(
             """
             INSERT INTO voice_quota_reservations
@@ -719,7 +754,9 @@ def settle_voice_session(
         actual = min(reserved, max(0, int(round(elapsed_seconds))))
         refund = reserved if status != "completed" else reserved - actual
         if refund:
-            _voice_ledger(conn, user_id=user_id, delta=refund, reason="settle", reference_id=session_id)
+            _voice_ledger(
+                conn, user_id=user_id, delta=refund, reason="settle", reference_id=session_id
+            )
         conn.execute(
             "UPDATE voice_quota_reservations SET status = ?, actual_seconds = ?, settled_at = ? WHERE session_id = ?",
             ("settled" if status == "completed" else "released", actual, _now(), session_id),
@@ -740,7 +777,9 @@ def reserve_turn(user_id: str, turn_id: str) -> bool:
         membership = _active_membership(conn, user_id)
         if membership is None:
             raise BillingError("会员已到期，请先兑换新的卡密。")
-        existing = conn.execute("SELECT status FROM quota_reservations WHERE turn_id = ?", (turn_id,)).fetchone()
+        existing = conn.execute(
+            "SELECT status FROM quota_reservations WHERE turn_id = ?", (turn_id,)
+        ).fetchone()
         if existing is not None:
             return existing["status"] == "reserved"
         account = _ensure_quota_account(conn, user_id)
@@ -776,7 +815,9 @@ def settle_turn(
         return
     prompt, completion, total = _summary_numbers(summary)
     with _transaction() as conn:
-        reservation = conn.execute("SELECT * FROM quota_reservations WHERE turn_id = ?", (turn_id,)).fetchone()
+        reservation = conn.execute(
+            "SELECT * FROM quota_reservations WHERE turn_id = ?", (turn_id,)
+        ).fetchone()
         if reservation is None or reservation["status"] != "reserved":
             return
         reserved = int(reservation["reserved_k_tokens"])
@@ -802,7 +843,19 @@ def settle_turn(
                  output_tokens, total_tokens, charged_k_tokens, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (f"usage:{turn_id}", user_id, turn_id, capability, model, prompt, completion, total, charged, status, _now()),
+            (
+                f"usage:{turn_id}",
+                user_id,
+                turn_id,
+                capability,
+                model,
+                prompt,
+                completion,
+                total,
+                charged,
+                status,
+                _now(),
+            ),
         )
         # ``balance`` is intentionally computed even when the result is not
         # returned; it keeps the ledger path exercised and auditable.

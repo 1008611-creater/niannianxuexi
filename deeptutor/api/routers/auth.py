@@ -48,8 +48,8 @@ from deeptutor.services.auth import (
     is_first_user,
     list_users,
     register_pb,
-    set_avatar,
     set_access,
+    set_avatar,
     set_role,
 )
 from deeptutor.services.codex_auth.contracts import CodexAuthError
@@ -978,7 +978,9 @@ async def update_user_access(
     source = body.access_source if body.access_status == "active" else None
     if body.access_status == "active" and source is None:
         source = "admin"
-    paid_until = body.paid_until.isoformat() if body.access_status == "active" and body.paid_until else None
+    paid_until = (
+        body.paid_until.isoformat() if body.access_status == "active" and body.paid_until else None
+    )
     if not set_access(username, body.access_status, source, paid_until):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     logger.info(

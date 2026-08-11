@@ -110,7 +110,9 @@ async def admin_void_voucher(voucher_id: str, payload: VoucherVoidRequest) -> di
     user = get_current_user()
     changed = billing.void_voucher(voucher_id, admin_id=user.id, reason=payload.reason)
     if not changed:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="卡密不存在或已不能作废。")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="卡密不存在或已不能作废。"
+        )
     return {"ok": True}
 
 

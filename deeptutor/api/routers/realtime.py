@@ -15,11 +15,12 @@ import websockets
 
 from deeptutor.api.routers.auth import TokenPayload, _current_access_metadata, require_active_access
 from deeptutor.multi_user.context import get_current_user, reset_current_user
+from deeptutor.services import billing
 from deeptutor.services.realtime.config import load_realtime_tutor_config
 from deeptutor.services.realtime.dashscope import (
+    initial_response,
     provider_client_event,
     public_provider_event,
-    initial_response,
     session_update,
     teacher_instructions,
     usage_from_event,
@@ -27,8 +28,6 @@ from deeptutor.services.realtime.dashscope import (
 )
 from deeptutor.services.realtime.usage import RealtimeUsageStore
 from deeptutor.services.session import get_session_store
-from deeptutor.services import billing
-
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -67,7 +66,11 @@ async def _send(websocket: WebSocket, payload: dict[str, Any]) -> bool:
 
 def _connect_kwargs(headers: dict[str, str]) -> dict[str, object]:
     """Keep the server proxy compatible with installed websockets 12+ releases."""
-    name = "additional_headers" if "additional_headers" in inspect.signature(websockets.connect).parameters else "extra_headers"
+    name = (
+        "additional_headers"
+        if "additional_headers" in inspect.signature(websockets.connect).parameters
+        else "extra_headers"
+    )
     return {
         name: headers,
         "max_size": 2 * 1024 * 1024,
@@ -199,7 +202,9 @@ async def realtime_tutor(websocket: WebSocket) -> None:
             )
             await websocket.close(code=1000)
             return
-        if not config.allows(user.username, is_admin=user.is_admin) and not billing.has_active_membership(user.id):
+        if not config.allows(
+            user.username, is_admin=user.is_admin
+        ) and not billing.has_active_membership(user.id):
             await _send(
                 websocket,
                 {
@@ -213,7 +218,9 @@ async def realtime_tutor(websocket: WebSocket) -> None:
 
         usage_store = RealtimeUsageStore()
         legacy_access = user.is_admin or user.username in config.allowed_users
-        remaining = usage_store.remaining_seconds(config.daily_limit_seconds) if legacy_access else 0
+        remaining = (
+            usage_store.remaining_seconds(config.daily_limit_seconds) if legacy_access else 0
+        )
         if legacy_access and remaining <= 0:
             await _send(
                 websocket,
@@ -291,10 +298,19 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                 voice_quota_reserved = True
             async with websockets.connect(config.websocket_url, **connect_kwargs) as provider:
                 logger.info("Realtime provider socket opened for account %s", user.id)
-                await provider.send(json.dumps(session_update(config, instructions=instructions), ensure_ascii=False))
+                await provider.send(
+                    json.dumps(
+                        session_update(config, instructions=instructions), ensure_ascii=False
+                    )
+                )
                 if not await _wait_for_provider_session_ready(provider):
-                    logger.error("Realtime provider session.update timed out for account %s", user.id)
-                    await _send(websocket, {"type": "error", "message": "念念老师暂时无法连接，请改用录音作答。"})
+                    logger.error(
+                        "Realtime provider session.update timed out for account %s", user.id
+                    )
+                    await _send(
+                        websocket,
+                        {"type": "error", "message": "念念老师暂时无法连接，请改用录音作答。"},
+                    )
                     return
                 logger.info("Realtime provider session updated for account %s", user.id)
                 # Request the opening turn only after Qwen confirms the session.
@@ -346,10 +362,15 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                         try:
                             event = json.loads(raw)
                         except json.JSONDecodeError:
-                            await _send(websocket, {"type": "error", "message": "语音数据无效，请重新打开念念老师。"})
+                            await _send(
+                                websocket,
+                                {"type": "error", "message": "语音数据无效，请重新打开念念老师。"},
+                            )
                             continue
                         if not valid_client_event(event):
-                            await _send(websocket, {"type": "error", "message": "这个语音操作暂不支持。"})
+                            await _send(
+                                websocket, {"type": "error", "message": "这个语音操作暂不支持。"}
+                            )
                             continue
                         await provider.send(
                             json.dumps(provider_client_event(event), ensure_ascii=False)
@@ -384,7 +405,10 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                         if visible.get("type") == "error":
                             await _send(
                                 websocket,
-                                {"type": "error", "message": "念念老师暂时没听清，请再说一次或改用录音作答。"},
+                                {
+                                    "type": "error",
+                                    "message": "念念老师暂时没听清，请再说一次或改用录音作答。",
+                                },
                             )
                             continue
                         if not await _send(websocket, visible):

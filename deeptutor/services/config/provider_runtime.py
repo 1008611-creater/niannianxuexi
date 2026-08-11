@@ -1019,8 +1019,7 @@ def resolve_imagegen_runtime_config(
         style=_as_str((model or {}).get("style")),
         response_format=_as_str((model or {}).get("response_format")),
         reference_image_urls=_to_url_list(
-            (model or {}).get("reference_image_urls")
-            or (model or {}).get("image_urls")
+            (model or {}).get("reference_image_urls") or (model or {}).get("image_urls")
         ),
         aspect_ratio=_as_str((model or {}).get("aspect_ratio")) or spec.default_aspect_ratio,
         resolution=_as_str((model or {}).get("resolution")) or spec.default_resolution or "4k",

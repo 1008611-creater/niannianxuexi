@@ -19,12 +19,12 @@ from deeptutor.services.config.provider_runtime import (
     resolve_tts_runtime_config,
 )
 from deeptutor.services.voice import synthesize_speech, transcribe_audio
+from deeptutor.services.voice.adapters.mimo import MiMoTTSAdapter
 from deeptutor.services.voice.adapters.openai_compat import (
     OpenAICompatSTTAdapter,
     OpenAICompatTTSAdapter,
     OpenRouterTTSAdapter,
 )
-from deeptutor.services.voice.adapters.mimo import MiMoTTSAdapter
 from deeptutor.services.voice.base import (
     build_auth_headers,
     join_audio_path,

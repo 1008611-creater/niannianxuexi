@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import time
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from deeptutor.services.file_io import atomic_write_text
 from deeptutor.services.path_service import get_path_service

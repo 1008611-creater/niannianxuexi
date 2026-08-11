@@ -25,7 +25,6 @@ from deeptutor.services.voice.base import (
 )
 from deeptutor.services.voice.config import AUTH_API_KEY_HEADER, TTSConfig
 
-
 _MIMO_FORMATS = {
     "wav": ("wav", "audio/wav"),
     "pcm": ("pcm16", "audio/pcm"),
@@ -48,9 +47,7 @@ class MiMoTTSAdapter(BaseTTSAdapter):
         format_info = _MIMO_FORMATS.get(requested_format)
         if format_info is None:
             supported = ", ".join(sorted(_MIMO_FORMATS))
-            raise VoiceProviderError(
-                f"MiMo TTS supports only these output formats: {supported}."
-            )
+            raise VoiceProviderError(f"MiMo TTS supports only these output formats: {supported}.")
         audio_format, content_type = format_info
         url = _join_api_path(config.base_url, "chat/completions")
         headers = {

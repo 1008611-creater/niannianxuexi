@@ -98,7 +98,9 @@ class RunningHubImage2Adapter(BaseImagegenAdapter):
                     logger.info("RunningHub Image2 task accepted task_id=%s", task_id)
                     result = await self._poll(client, query_url, headers, config, task_id)
                     result_url = self._extract_image_url(result)
-                    download = await client.get(result_url, headers={"User-Agent": headers["User-Agent"]})
+                    download = await client.get(
+                        result_url, headers={"User-Agent": headers["User-Agent"]}
+                    )
                     raise_for_provider(download, "RunningHub Image2 download")
                     content_type = download.headers.get("content-type") or "image/png"
                     if not content_type.startswith("image/"):

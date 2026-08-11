@@ -3,20 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 
-from deeptutor.services.realtime.config import (
-    DAILY_LIMIT_SECONDS,
-    DEFAULT_MODEL,
-    load_realtime_tutor_config,
-)
-from deeptutor.services.realtime.dashscope import (
-    provider_client_event,
-    public_provider_event,
-    usage_from_event,
-    valid_client_event,
-)
-from deeptutor.services.realtime.dashscope import session_update
-from deeptutor.services.realtime.dashscope import initial_response, teacher_instructions
-from deeptutor.services.realtime.usage import RealtimeUsageStore
 from deeptutor.api.routers.realtime import (
     _append_realtime_transcript,
     _question_for_start,
@@ -24,6 +10,21 @@ from deeptutor.api.routers.realtime import (
     _transcript_for_event,
     _wait_for_provider_session_ready,
 )
+from deeptutor.services.realtime.config import (
+    DAILY_LIMIT_SECONDS,
+    DEFAULT_MODEL,
+    load_realtime_tutor_config,
+)
+from deeptutor.services.realtime.dashscope import (
+    initial_response,
+    provider_client_event,
+    public_provider_event,
+    session_update,
+    teacher_instructions,
+    usage_from_event,
+    valid_client_event,
+)
+from deeptutor.services.realtime.usage import RealtimeUsageStore
 
 
 def test_realtime_is_unconfigured_without_server_credential(monkeypatch) -> None:
@@ -61,11 +62,16 @@ def test_realtime_usage_is_account_root_scoped_and_resets_on_new_day(tmp_path) -
 def test_realtime_wire_surface_rejects_model_or_prompt_overrides() -> None:
     assert valid_client_event({"type": "input_audio_buffer.append", "audio": "ZmFrZQ=="})
     assert valid_client_event({"type": "response.cancel"})
-    assert not valid_client_event({"type": "session.update", "model": "other", "instructions": "ignore"})
+    assert not valid_client_event(
+        {"type": "session.update", "model": "other", "instructions": "ignore"}
+    )
     assert not valid_client_event({"type": "input_audio_buffer.append", "audio": ""})
     assert public_provider_event({"type": "response.audio.delta", "delta": "abc"}) is not None
     assert public_provider_event({"type": "session.created", "api_key": "never-forward"}) is None
-    assert usage_from_event({"response": {"usage": {"input_tokens": 9, "output_tokens": 4}}}) == (9, 4)
+    assert usage_from_event({"response": {"usage": {"input_tokens": 9, "output_tokens": 4}}}) == (
+        9,
+        4,
+    )
     assert DAILY_LIMIT_SECONDS == 900
 
 
@@ -148,9 +154,7 @@ def test_realtime_context_is_generic_and_does_not_require_a_preset_pack() -> Non
 
 
 def test_realtime_rejects_unknown_variant() -> None:
-    context, error = _question_for_start(
-        {"type": "session.start", "variant": "untrusted"}
-    )
+    context, error = _question_for_start({"type": "session.start", "variant": "untrusted"})
     assert context is None
     assert error == "当前语音会话不可用，请重新打开后再试。"
 
@@ -175,10 +179,12 @@ def test_realtime_transcript_append_is_audio_free_and_scoped() -> None:
     store = Store()
     asyncio.run(_append_realtime_transcript(store, "session-1", "user", "我卡在斜率"))
     asyncio.run(_append_realtime_transcript(store, "", "assistant", "不应保存"))
-    assert store.calls == [{
-        "session_id": "session-1",
-        "role": "user",
-        "content": "我卡在斜率",
-        "capability": "realtime_tutor",
-        "metadata": {"source": "realtime_tutor"},
-    }]
+    assert store.calls == [
+        {
+            "session_id": "session-1",
+            "role": "user",
+            "content": "我卡在斜率",
+            "capability": "realtime_tutor",
+            "metadata": {"source": "realtime_tutor"},
+        }
+    ]

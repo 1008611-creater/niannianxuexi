@@ -84,7 +84,11 @@ def _parse_simple_numeric_answer(answer: str) -> Fraction | None:
     is_percentage = raw.endswith("%")
     if is_percentage:
         raw = raw[:-1].strip()
-    if not raw or len(raw) > _MAX_NUMERIC_EXPRESSION_LENGTH or not _looks_like_numeric_expression(raw):
+    if (
+        not raw
+        or len(raw) > _MAX_NUMERIC_EXPRESSION_LENGTH
+        or not _looks_like_numeric_expression(raw)
+    ):
         return None
     try:
         parsed = ast.parse(raw.replace("×", "*").replace("÷", "/").replace("^", "**"), mode="eval")
@@ -96,7 +100,11 @@ def _parse_simple_numeric_answer(answer: str) -> Fraction | None:
 
 def _evaluate_numeric_expression(node: ast.expr) -> Fraction:
     """Safely evaluate the limited arithmetic grammar accepted above."""
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+    if (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+    ):
         return Fraction(str(node.value))
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
         value = _evaluate_numeric_expression(node.operand)
@@ -115,7 +123,7 @@ def _evaluate_numeric_expression(node: ast.expr) -> Fraction:
         if isinstance(node.op, ast.Pow):
             if right.denominator != 1 or right < 0 or right > 10:
                 raise ValueError("unsupported exponent")
-            return left ** right.numerator
+            return left**right.numerator
     raise ValueError("unsupported numeric expression")
 
 

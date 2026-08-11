@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
-
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 DEFAULT_MODEL = "qwen3.5-omni-flash-realtime"
 DEFAULT_TEST_USERS = frozenset({"admin123", "admin666"})
@@ -63,11 +62,14 @@ def load_realtime_tutor_config() -> RealtimeTutorConfig:
     model = (os.getenv("DASHSCOPE_REALTIME_MODEL") or DEFAULT_MODEL).strip()
     workspace_id = (os.getenv("DASHSCOPE_WORKSPACE_ID") or "").strip()
     configured_url = (os.getenv("DASHSCOPE_REALTIME_URL") or "").strip()
-    websocket_url = configured_url or (_default_websocket_url(workspace_id, model) if workspace_id else "")
+    websocket_url = configured_url or (
+        _default_websocket_url(workspace_id, model) if workspace_id else ""
+    )
     raw_users = (os.getenv("NIANNIAN_REALTIME_TEST_USERS") or "").strip()
-    allowed_users = frozenset(
-        item.strip() for item in raw_users.split(",") if item.strip()
-    ) or DEFAULT_TEST_USERS
+    allowed_users = (
+        frozenset(item.strip() for item in raw_users.split(",") if item.strip())
+        or DEFAULT_TEST_USERS
+    )
     session_limit = _positive_int(
         os.getenv("NIANNIAN_REALTIME_SESSION_LIMIT_SECONDS"), SESSION_LIMIT_SECONDS
     )
