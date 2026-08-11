@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useDevice } from "@/hooks/useDevice";
+import PageIntroGuide from "@/components/layout/PageIntroGuide";
 import type { ReactNode } from "react";
 
 /* Lets the sidebar dismiss the drawer after a nav click without every layout
@@ -77,7 +78,7 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
     <SidebarDrawerContext.Provider value={{ close }}>
       {/* dvh, not vh: iOS Safari's 100vh includes the retracted address bar, so
           a vh-sized shell pushes the composer under it. */}
-      <div className="flex h-dvh overflow-hidden">
+      <div className="flex h-dvh overflow-x-hidden max-md:overflow-y-auto max-md:overscroll-y-contain md:overflow-hidden">
         {drawerOpen ? (
           <div
             onClick={close}
@@ -99,7 +100,7 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
           {sidebar}
         </div>
 
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--background)]">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--background)] max-md:overflow-y-auto max-md:overscroll-y-contain max-md:touch-pan-y max-md:[-webkit-overflow-scrolling:touch]">
           <div className="flex h-11 shrink-0 items-center gap-1 border-b border-[var(--border)] px-2 md:hidden">
             <button
               type="button"
@@ -112,23 +113,20 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
             </button>
             <Link href="/" className="flex items-center gap-1.5">
               <Image
-                src="/logo.png"
-                alt="DeepTutor"
+                src="/niannian-logo.svg"
+                alt={t("Niannian AI")}
                 width={20}
                 height={20}
                 className="h-5 w-5"
               />
-              <Image
-                src="/banner.png"
-                alt="DeepTutor"
-                width={897}
-                height={236}
-                className="h-[18px] w-auto"
-              />
+              <span className="text-sm font-semibold tracking-tight text-[var(--foreground)]">
+                {t("Niannian")}
+              </span>
             </Link>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+          <div className="min-h-0 flex-1 overflow-hidden max-md:touch-pan-y">{children}</div>
+          <PageIntroGuide />
         </main>
       </div>
     </SidebarDrawerContext.Provider>
