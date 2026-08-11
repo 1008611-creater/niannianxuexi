@@ -136,3 +136,128 @@ Source extras (.[ extra ], defined in pyproject.toml):
 .[dev]            — Test / lint tooling
 .[all]            — Everything above
 ```
+
+## Niannian Learning Project Rules
+
+This checkout is the canonical local workspace for the Niannian learning
+product. Work from this directory for future changes; the former mixed
+workspace under `E:/codex/aisp/aidaihuo/github-selected-projects/deeptutor`
+is a read-only rollback copy unless the user explicitly says otherwise.
+
+- Local-first: verify changes against the local WSL/Docker instance before
+  considering any online deployment. Do not publish to the production site
+  without an explicit user request.
+- Direct-release exception: when the user explicitly requests immediate
+  server publishing, do not block on local page/container acceptance. Run
+  lightweight local static checks when available, deploy through the saved
+  server route, and perform the real route and health acceptance on the server
+  after traffic is switched.
+- Execution default: run local tests, read-only diagnostics, build checks, and
+  other reversible verification steps without asking the user for per-step
+  permission. Report only the result and practical value. Ask before actions
+  that create meaningful external side effects, such as production publishing,
+  paid-provider calls, credential use, or changes to real user data.
+- Highest-value action and Skill routing: before each new implementation or
+  verification push, identify the single highest-value smallest executable
+  action, state it to the user, and route it through the narrowest applicable
+  local Skill or a relevant GitHub source when that materially improves the
+  result. State the selected route before execution, then continue without a
+  second confirmation for ordinary tests and diagnostics.
+- Professional iterative GitHub delivery: default code work to a short-lived
+  `codex/<scope>` branch after inspecting the current branch, worktree, remote,
+  and overlapping user changes. Deliver one bounded behavior at a time through
+  small reviewable commits, focused automated checks, and real-path evidence;
+  never include unrelated dirty files. When a project-owned writable GitHub
+  remote and authentication are available, push the branch and open or update
+  a Pull Request as the normal handoff; never treat an upstream-only remote as
+  the project's delivery target. The PR must state the user outcome, changed
+  surface, verification evidence, screenshots for UI work, known risk, and a
+  practical rollback. If GitHub access is unavailable, finish the local
+  implementation and report the exact blocked push or PR step instead of
+  claiming delivery. Do not force-push, merge a PR, publish production, or
+  modify real user data unless the user explicitly authorizes that action.
+- Student-first product boundary: the current product is a general-purpose AI
+  Agent centered on conversation with Nian Nian, photo questions, voice input,
+  files, tools, and capabilities. Keep admin/provider/model configuration out
+  of the student navigation. Student routes reuse the single primary
+  workspace sidebar; do not render a separate `STUDENT_NAV` or a second
+  student-specific sidebar.
+- Curriculum boundary: curriculum packages are not part of the current main
+  product, main navigation, or Agent positioning. Future subject/course areas
+  may be added as independent sections with their own explicit scope; do not
+  add course IDs, preset packs, diagnostic funnels, or course claims to the
+  general Agent experience.
+- Ready-to-use productization is the current primary product direction. Turn
+  the existing Agent, Partner, knowledge, photo, voice, file, tool, and
+  capability primitives into administrator-authored learning templates that a
+  student or parent can start with one choice or one tap. Do not require them
+  to understand models, providers, prompts, Personas, Souls, knowledge-base
+  construction, tool mounting, or Agent configuration.
+- A learning template is an orchestration preset, not a curriculum package or
+  a new navigation system. It may bind region, school stage, grade, subject,
+  textbook edition, verified learning materials, a prepared Nian Nian role,
+  default tools, starter actions, and age-appropriate answer policy. Reuse the
+  existing single workspace, chat, Partner, Persona, grant, and knowledge-base
+  contracts instead of building parallel template-specific engines.
+- Build template coverage in thin vertical slices. Start with junior-high
+  mathematics and the People's Education Press edition, make one real
+  student flow work end to end, then expand grades, regions, editions,
+  supplementary materials, papers, and verified past exams. Do not claim
+  content or regional coverage until the corresponding assets, provenance,
+  rights, retrieval, and student path have been verified.
+- Keep content catalog metadata separate from content rights and binaries.
+  Every textbook, supplementary book, paper, and past-exam source must record
+  provenance, edition/year/region, ownership or license status, revision, and
+  availability. Never scrape, bundle, publish, or expose copyrighted full text
+  without authorization; prefer licensed, public-domain, administrator-owned,
+  or user-uploaded material.
+- Optimize first-run value: ask no more than the minimum profile facts needed
+  to recommend a starting template, provide a safe default when facts are
+  missing, and let the student begin with photo, voice, or text immediately.
+  Progressive customization belongs after the first successful learning turn.
+- Design every student or parent page from the user's immediate intent before
+  exposing backend capability. For each route, define the user's primary
+  question, the most valuable first-viewport result, one primary action, the
+  visible result of that action, and the required loading, empty, permission,
+  error, and return states. Do not implement a page whose purpose can only be
+  explained with internal product terms or instructional copy.
+- The frontend specification is part of feature completeness. Before building
+  a new backend primitive or template catalog, describe what the route looks
+  like on desktop and 390px mobile, what the user can do without configuration,
+  and what remains progressively disclosed. Prefer a directly usable prepared
+  object over a creation wizard, settings form, or generic management table on
+  student-facing routes.
+- Every primary student or parent route must provide a route-specific bilingual
+  introduction through the shared page-intro component. Show it automatically
+  on the first visit to that route version, remember dismissal, and keep a
+  consistent help control that reopens it. Keep the modal concise: page purpose,
+  the few actions users can take now, and one continue action.
+- Maintain Simplified Chinese and English as an explicit UI mode with Chinese
+  as the default. Keep the language switch reachable from the shared shell,
+  persist the user's choice, and localize each page deliberately, including
+  navigation, dialogs, empty/loading/error/permission states, generated default
+  names, and backend-provided labels. A translation key that falls back to its
+  English source is not accepted as Chinese localization.
+- Template acceptance is a real learning outcome, not successful preset
+  creation. Verify on desktop and 390px mobile that a fresh student can select
+  or receive a template, start a task in one tap, have the prepared teacher use
+  the bound conversation and learning material correctly, and continue without
+  seeing generic workspace configuration. Keep the detailed rollout plan in
+  `NIANNIAN_READY_TO_USE_PLAN.md`.
+- Default to Chinese visible UI and concise action-oriented copy. Avoid
+  explanatory small print unless it is required for a user decision or an
+  error state.
+- Preserve the approved desktop and 390px mobile layout. After UI changes,
+  check the real page for overflow, overlap, blocked text, and touch/voice/
+  photo interaction.
+- Keep credentials and runtime user data out of source changes and reports.
+  The excluded `data/` directory is runtime state and must be configured
+  separately for a local instance.
+- Server-first heavy-work rule: when local memory is insufficient for a
+  build or end-to-end verification, use the saved SSH alias
+  `haika-kidswear-1757` directly instead of repeatedly asking for connection
+  details. Sync only source and build inputs; always exclude `data/`, secrets,
+  real runtime data, `.venv/`, `web/node_modules/`, `web/.next/`, and caches.
+  Replace only the DeepTutor application and sandbox runner containers, keep
+  PocketBase/Caddy and data mounts unchanged, and retain a rollback image or
+  source baseline before switching traffic.
