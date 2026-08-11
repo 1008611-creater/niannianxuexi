@@ -18,7 +18,6 @@ export type RealtimeTutorStartOptions = {
 };
 
 type RealtimeTutorOptions = {
-  onTranscript?: (text: string) => void;
   onSessionEnd?: () => void;
   onAudioLevel?: (level: number) => void;
 };
@@ -76,17 +75,6 @@ async function requestRealtimeHandoff(signal?: AbortSignal): Promise<string> {
   } catch {
     return "";
   }
-}
-
-function readTranscript(event: Record<string, unknown>): string {
-  const direct = event.transcript;
-  if (typeof direct === "string") return direct.trim();
-  const item = event.item;
-  if (item && typeof item === "object") {
-    const transcript = (item as { transcript?: unknown }).transcript;
-    if (typeof transcript === "string") return transcript.trim();
-  }
-  return "";
 }
 
 async function openMicrophone(): Promise<MediaStream> {
@@ -165,7 +153,7 @@ function createAudioWorkletModuleUrl(): string {
   return URL.createObjectURL(new Blob([AUDIO_WORKLET_PROCESSOR_SOURCE], { type: "application/javascript" }));
 }
 
-export function useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel }: RealtimeTutorOptions = {}) {
+export function useRealtimeTutor({ onSessionEnd, onAudioLevel }: RealtimeTutorOptions = {}) {
   const [state, setState] = useState<RealtimeTutorState>("idle");
   const [message, setMessage] = useState("");
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
@@ -188,14 +176,10 @@ export function useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel }: R
   const greetingPendingRef = useRef(false);
   const assistantSpeakingRef = useRef(false);
   const resumeInputTimerRef = useRef<number | null>(null);
-  const onTranscriptRef = useRef(onTranscript);
   const onSessionEndRef = useRef(onSessionEnd);
   const onAudioLevelRef = useRef(onAudioLevel);
   const microphoneEnabledRef = useRef(true);
   const detectedInputRef = useRef(false);
-  useEffect(() => {
-    onTranscriptRef.current = onTranscript;
-  }, [onTranscript]);
   useEffect(() => {
     onSessionEndRef.current = onSessionEnd;
   }, [onSessionEnd]);
@@ -575,11 +559,6 @@ export function useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel }: R
               setMessage("念念老师正在听");
             }
           }, waitMs);
-          return;
-        }
-        if (type === "conversation.item.input_audio_transcription.completed") {
-          const transcript = readTranscript(event);
-          if (transcript) onTranscriptRef.current?.(transcript);
           return;
         }
         if (type === "limit_reached" || type === "unavailable") {

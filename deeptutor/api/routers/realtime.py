@@ -198,38 +198,6 @@ async def _latest_realtime_image(store: Any, session_id: str) -> str:
     return ""
 
 
-def _transcript_for_event(event: object) -> str:
-    if not isinstance(event, dict):
-        return ""
-    transcript = event.get("transcript")
-    if isinstance(transcript, str):
-        return transcript.strip()
-    item = event.get("item")
-    if isinstance(item, dict) and isinstance(item.get("transcript"), str):
-        return item["transcript"].strip()
-    return ""
-
-
-async def _append_realtime_transcript(
-    store: Any | None,
-    session_id: str,
-    role: str,
-    transcript: str,
-) -> None:
-    if store is None or not session_id or not transcript:
-        return
-    try:
-        await store.add_message(
-            session_id=session_id,
-            role=role,
-            content=transcript[:4_000],
-            capability="realtime_tutor",
-            metadata={"source": "realtime_tutor"},
-        )
-    except Exception:
-        logger.warning("Could not save realtime transcript for session %s", session_id)
-
-
 @router.get("/tutor-token")
 async def realtime_tutor_token(
     payload: TokenPayload | None = Depends(require_active_access),
@@ -479,7 +447,6 @@ async def realtime_tutor(websocket: WebSocket) -> None:
 
                 async def provider_to_client() -> None:
                     nonlocal input_tokens, output_tokens
-                    student_turn_seen = False
                     async for raw in provider:
                         try:
                             event = json.loads(raw)
@@ -489,15 +456,6 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                         input_tokens += added_input
                         output_tokens += added_output
                         event_type = event.get("type") if isinstance(event, dict) else ""
-                        transcript = _transcript_for_event(event)
-                        if event_type == "conversation.item.input_audio_transcription.completed":
-                            # Voice turns stay inside the realtime call. The
-                            # student explicitly submits text in the composer;
-                            # auto-persisting speech would duplicate it in the
-                            # visible conversation history.
-                            student_turn_seen = bool(transcript)
-                        elif event_type == "response.audio_transcript.done" and student_turn_seen:
-                            student_turn_seen = False
                         visible = public_provider_event(event)
                         if visible is None:
                             continue

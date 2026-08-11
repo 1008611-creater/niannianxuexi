@@ -19,7 +19,6 @@ type RealtimeTutorProps = {
   learningMode?: LearningMode;
   layout?: "compact" | "call";
   disabled?: boolean;
-  onTranscript?: (text: string) => void;
   onSessionEnd?: () => void;
   onFallback?: () => void;
 };
@@ -35,13 +34,13 @@ const stateIcon: Record<RealtimeTutorState, typeof Mic> = {
   error: Mic,
 };
 
-export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", learningMode, layout = "compact", disabled = false, onTranscript, onSessionEnd, onFallback }: RealtimeTutorProps) {
+export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", learningMode, layout = "compact", disabled = false, onSessionEnd, onFallback }: RealtimeTutorProps) {
   const visualizerRef = useRef<HTMLDivElement>(null);
   const gestureStartRef = useRef(false);
   const updateAudioLevel = useCallback((level: number) => {
     visualizerRef.current?.style.setProperty("--audio-level", String(level));
   }, []);
-  const tutor = useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel: updateAudioLevel });
+  const tutor = useRealtimeTutor({ onSessionEnd, onAudioLevel: updateAudioLevel });
   const Icon = stateIcon[tutor.state];
   const fallbackOnly = ["unavailable", "permission_denied", "error"].includes(tutor.state);
   const startOptions: RealtimeTutorStartOptions = { questionId, sessionId, variant, context, learningMode };

@@ -4,12 +4,10 @@ import asyncio
 import json
 
 from deeptutor.api.routers.realtime import (
-    _append_realtime_transcript,
     _latest_realtime_image,
     _learning_mode_from_session_messages,
     _question_for_start,
     _session_id_for_start,
-    _transcript_for_event,
     _wait_for_provider_session_ready,
 )
 from deeptutor.services.realtime.config import (
@@ -306,32 +304,15 @@ def test_realtime_rejects_unknown_variant() -> None:
     assert error == "当前语音会话不可用，请重新打开后再试。"
 
 
-def test_realtime_transcript_helpers_keep_only_completed_text() -> None:
+def test_realtime_session_helpers_keep_session_ids_strict() -> None:
     assert _session_id_for_start({"session_id": " chat_123 "}) == "chat_123"
     assert _session_id_for_start({"session_id": 123}) == ""
-    assert _transcript_for_event({"transcript": "  我不会这一步  "}) == "我不会这一步"
-    assert _transcript_for_event({"item": {"transcript": "老师先提示"}}) == "老师先提示"
-    assert _transcript_for_event({"delta": "partial"}) == ""
 
 
-def test_realtime_transcript_append_is_audio_free_and_scoped() -> None:
-    class Store:
-        def __init__(self) -> None:
-            self.calls: list[dict[str, object]] = []
-
-        async def add_message(self, **kwargs: object) -> int:
-            self.calls.append(kwargs)
-            return 1
-
-    store = Store()
-    asyncio.run(_append_realtime_transcript(store, "session-1", "user", "我卡在斜率"))
-    asyncio.run(_append_realtime_transcript(store, "", "assistant", "不应保存"))
-    assert store.calls == [
+def test_realtime_does_not_expose_student_transcripts_to_browser() -> None:
+    assert public_provider_event(
         {
-            "session_id": "session-1",
-            "role": "user",
-            "content": "我卡在斜率",
-            "capability": "realtime_tutor",
-            "metadata": {"source": "realtime_tutor"},
+            "type": "conversation.item.input_audio_transcription.completed",
+            "transcript": "这一步我不会",
         }
-    ]
+    ) is None
