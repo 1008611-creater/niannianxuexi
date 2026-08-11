@@ -95,14 +95,22 @@ def public_questions() -> list[dict[str, Any]]:
     ]
 
 
-def save_profile(*, child_name: str, grade: str, textbook_edition: str, answers: dict[str, int]) -> dict[str, Any]:
+def save_profile(
+    *, child_name: str, grade: str, textbook_edition: str, answers: dict[str, int]
+) -> dict[str, Any]:
     clean_answers = {str(k): int(v) for k, v in answers.items() if str(k)}
     results = []
     for question in QUESTIONS:
         choice = clean_answers.get(question["id"])
         if choice is None or choice < 0 or choice >= len(question["options"]):
             continue
-        results.append({"question_id": question["id"], "skill": question["skill"], "correct": choice == question["answer"]})
+        results.append(
+            {
+                "question_id": question["id"],
+                "skill": question["skill"],
+                "correct": choice == question["answer"],
+            }
+        )
     score = sum(1 for result in results if result["correct"])
     weak_areas = [result["skill"] for result in results if not result["correct"]]
     if score <= 1:
@@ -117,11 +125,31 @@ def save_profile(*, child_name: str, grade: str, textbook_edition: str, answers:
         "child_name": child_name.strip()[:40],
         "grade": grade.strip()[:40],
         "textbook_edition": textbook_edition.strip()[:80],
-        "assessment": {"version": 1, "answered": len(results), "score": score, "total": len(QUESTIONS), "level": level, "weak_areas": weak_areas, "results": results},
+        "assessment": {
+            "version": 1,
+            "answered": len(results),
+            "score": score,
+            "total": len(QUESTIONS),
+            "level": level,
+            "weak_areas": weak_areas,
+            "results": results,
+        },
         "agent_presets": [
-            {"id": "niannian-math-teacher", "name": "念念数学老师", "purpose": "结合孩子的题目、错因和表达方式讲清楚"},
-            {"id": "mistake-coach", "name": "错题诊断教练", "purpose": "追踪薄弱点，安排复习和变式练习"},
-            {"id": "parent-learning-assistant", "name": "家长学习助手", "purpose": "把进度转成家长能执行的建议"},
+            {
+                "id": "niannian-math-teacher",
+                "name": "念念数学老师",
+                "purpose": "结合孩子的题目、错因和表达方式讲清楚",
+            },
+            {
+                "id": "mistake-coach",
+                "name": "错题诊断教练",
+                "purpose": "追踪薄弱点，安排复习和变式练习",
+            },
+            {
+                "id": "parent-learning-assistant",
+                "name": "家长学习助手",
+                "purpose": "把进度转成家长能执行的建议",
+            },
         ],
         "profile_revision": 1,
         "created_at": now,

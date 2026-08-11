@@ -110,6 +110,8 @@ import { normalizeMessageContent } from "@/lib/message-content";
 import { buildRealtimeLearningContext } from "@/lib/realtime-learning-context";
 import {
   JUNIOR_MATH_BRIDGE_TEMPLATE,
+  LEARNING_MODE_FOR_ACTION,
+  type LearningMode,
   type LearningTemplateAction,
 } from "@/lib/learning-templates";
 import type { SpaceMemoryFile } from "@/lib/space-items";
@@ -417,6 +419,10 @@ export default function ChatPage() {
     null,
   );
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  // Set only by a prepared student action. It is sent with the next turn and
+  // becomes a server-owned teaching policy; students never configure Agents.
+  const [pendingLearningMode, setPendingLearningMode] =
+    useState<LearningMode | null>(null);
   const attachmentLimits = useAttachmentLimits();
   const [dragging, setDragging] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -615,6 +621,7 @@ export default function ChatPage() {
       } catch {
         // A blocked localStorage must not prevent the learning path.
       }
+      setPendingLearningMode(LEARNING_MODE_FOR_ACTION[action]);
       handlePrefillComposer(prompts[action]);
       window.requestAnimationFrame(() => {
         document.getElementById("niannian-composer")?.scrollIntoView({
@@ -1636,6 +1643,9 @@ export default function ChatPage() {
       if (selectedAgent && subagentBudget) {
         config = { ...(config ?? {}), subagent_consult_budget: subagentBudget };
       }
+      if (pendingLearningMode) {
+        config = { ...(config ?? {}), learning_mode: pendingLearningMode };
+      }
 
       const memoryPayload = [...memoryReferencesPayload];
       const messageContent =
@@ -1673,6 +1683,7 @@ export default function ChatPage() {
       setSelectedAgentSessions([]);
       setSelectedQuestionEntries([]);
       setSelectedMemoryFiles([]);
+      setPendingLearningMode(null);
     },
     [
       attachments,
@@ -1683,6 +1694,7 @@ export default function ChatPage() {
       isVisualizeMode,
       memoryReferencesPayload,
       notebookReferencesPayload,
+      pendingLearningMode,
       questionNotebookReferencesPayload,
       quizConfig,
       quizPdf,

@@ -42,4 +42,11 @@ async def profile() -> dict[str, Any]:
 async def create_profile(body: SaveProfileRequest) -> dict[str, Any]:
     if not get_current_user().id:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return {"profile": save_profile(child_name=body.child_name, grade=body.grade, textbook_edition=body.textbook_edition, answers=body.answers)}
+    return {
+        "profile": save_profile(
+            child_name=body.child_name,
+            grade=body.grade,
+            textbook_edition=body.textbook_edition,
+            answers=body.answers,
+        )
+    }

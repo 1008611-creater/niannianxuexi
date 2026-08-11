@@ -429,6 +429,20 @@ def _extract_regenerate_flag(config: dict[str, Any] | None) -> bool:
     return bool(raw)
 
 
+def _append_learning_mode_context(
+    memory_context: str,
+    config: dict[str, Any] | None,
+    *,
+    language: str,
+) -> str:
+    """Add a server-owned teaching policy without trusting browser prompt text."""
+    from deeptutor.services.learning_mode import teaching_policy
+
+    mode = config.get("learning_mode") if isinstance(config, dict) else None
+    policy = teaching_policy(mode, language=language)
+    return (memory_context + "\n" + policy).strip() if policy else memory_context
+
+
 def _format_followup_question_context(context: dict[str, Any], language: str = "en") -> str:
     options = context.get("options") or {}
     option_lines = []
@@ -660,6 +674,10 @@ class TurnRuntimeManager:
             # key — stripped before validation, merged back into the turn config
             # and read by the subagent capability from context.config_overrides.
             "subagent_consult_budget",
+            # Student learning actions send only this allowlisted mode. It is
+            # retained in the request snapshot so regeneration keeps the same
+            # teaching behaviour.
+            "learning_mode",
         )
         runtime_only_config = {
             key: raw_config.pop(key) for key in runtime_only_keys if key in raw_config
@@ -1370,6 +1388,11 @@ class TurnRuntimeManager:
             learner_context = context_summary()
             if learner_context:
                 memory_context = (memory_context + "\n" + learner_context).strip()
+            memory_context = _append_learning_mode_context(
+                memory_context,
+                request_config,
+                language=str(payload.get("language", "zh") or "zh"),
+            )
 
             # Persona: at most one behaviour preset per turn, eagerly
             # injected (a persona must shape the voice from the first

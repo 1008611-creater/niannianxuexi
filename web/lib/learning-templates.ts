@@ -1,4 +1,12 @@
 export type LearningTemplateAction = "photo" | "concept" | "paper";
+export type LearningMode = "math_teacher" | "mistake_coach" | "paper_analyst";
+
+/** Student actions resolve to a server-owned policy, not an Agent selector. */
+export const LEARNING_MODE_FOR_ACTION: Record<LearningTemplateAction, LearningMode> = {
+  photo: "math_teacher",
+  concept: "math_teacher",
+  paper: "paper_analyst",
+};
 
 export interface LearningTemplate {
   id: string;
