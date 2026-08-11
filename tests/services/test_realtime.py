@@ -5,8 +5,8 @@ import json
 
 from deeptutor.api.routers.realtime import (
     _append_realtime_transcript,
-    _learning_mode_from_session_messages,
     _latest_realtime_image,
+    _learning_mode_from_session_messages,
     _question_for_start,
     _session_id_for_start,
     _transcript_for_event,
@@ -106,6 +106,7 @@ def test_realtime_proxy_assigns_provider_event_ids_and_finishes_sessions() -> No
 
 def test_realtime_image_encoder_uses_a_bounded_jpeg_frame() -> None:
     import base64
+
     import fitz
 
     image = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 1_500, 900), False).tobytes("png")

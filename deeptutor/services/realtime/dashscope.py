@@ -8,7 +8,6 @@ from uuid import uuid4
 
 from deeptutor.services.realtime.config import RealtimeTutorConfig
 
-
 # DashScope accepts one JPEG image buffer frame up to 256 KiB after Base64
 # encoding. Leave headroom below the documented raw-byte guidance.
 MAX_REALTIME_IMAGE_BYTES = 190_000
