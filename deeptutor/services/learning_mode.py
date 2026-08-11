@@ -43,8 +43,6 @@ def teaching_policy(mode: Any, *, language: str = "zh") -> str:
     if not normalized:
         return ""
     policies = (
-        _CHINESE_POLICIES
-        if str(language or "zh").lower().startswith("zh")
-        else _ENGLISH_POLICIES
+        _CHINESE_POLICIES if str(language or "zh").lower().startswith("zh") else _ENGLISH_POLICIES
     )
     return policies[normalized]
