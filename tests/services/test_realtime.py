@@ -99,9 +99,12 @@ def test_realtime_proxy_assigns_provider_event_ids_and_finishes_sessions() -> No
         "input_audio_buffer.append",
         "input_image_buffer.append",
     ]
-    assert [event["type"] for event in provider_events_for_client_event(
-        {"type": "response.cancel"}, image="cXVlc3Rpb24="
-    )] == ["response.cancel"]
+    assert [
+        event["type"]
+        for event in provider_events_for_client_event(
+            {"type": "response.cancel"}, image="cXVlc3Rpb24="
+        )
+    ] == ["response.cancel"]
 
 
 def test_realtime_image_encoder_uses_a_bounded_jpeg_frame() -> None:
@@ -210,16 +213,30 @@ def test_realtime_loads_only_the_latest_user_image(monkeypatch, tmp_path) -> Non
     class Store:
         async def get_messages(self, _session_id: str):
             return [
-                {"role": "assistant", "attachments": [{"type": "image", "id": "old", "filename": "old.png"}]},
-                {"role": "user", "attachments": [{"type": "image", "id": "question", "filename": "question.png"}]},
+                {
+                    "role": "assistant",
+                    "attachments": [{"type": "image", "id": "old", "filename": "old.png"}],
+                },
+                {
+                    "role": "user",
+                    "attachments": [
+                        {"type": "image", "id": "question", "filename": "question.png"}
+                    ],
+                },
             ]
 
     class AttachmentStore:
         def resolve_path(self, **kwargs):
-            assert kwargs == {"session_id": "chat-1", "attachment_id": "question", "filename": "question.png"}
+            assert kwargs == {
+                "session_id": "chat-1",
+                "attachment_id": "question",
+                "filename": "question.png",
+            }
             return image_path
 
-    monkeypatch.setattr("deeptutor.services.storage.get_attachment_store", lambda: AttachmentStore())
+    monkeypatch.setattr(
+        "deeptutor.services.storage.get_attachment_store", lambda: AttachmentStore()
+    )
     assert asyncio.run(_latest_realtime_image(Store(), "chat-1"))
 
 

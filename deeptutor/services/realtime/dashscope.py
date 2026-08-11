@@ -28,7 +28,11 @@ def encode_realtime_image(image_bytes: bytes) -> str:
         import fitz
 
         pixmap = fitz.Pixmap(image_bytes)
-        if not pixmap.width or not pixmap.height or pixmap.width * pixmap.height > MAX_REALTIME_IMAGE_PIXELS:
+        if (
+            not pixmap.width
+            or not pixmap.height
+            or pixmap.width * pixmap.height > MAX_REALTIME_IMAGE_PIXELS
+        ):
             return ""
         scale = min(1.0, MAX_REALTIME_IMAGE_DIMENSION / max(pixmap.width, pixmap.height))
         if scale < 1:
@@ -186,7 +190,9 @@ def provider_image_event(image: str) -> dict[str, Any]:
     }
 
 
-def provider_events_for_client_event(event: dict[str, Any], *, image: str = "") -> list[dict[str, Any]]:
+def provider_events_for_client_event(
+    event: dict[str, Any], *, image: str = ""
+) -> list[dict[str, Any]]:
     """Translate one accepted browser event, optionally following audio with one image."""
     events = [provider_client_event(event)]
     if image and event.get("type") == "input_audio_buffer.append":
