@@ -2050,6 +2050,7 @@ export default function ChatPage() {
                       layout="call"
                       variant="conversation"
                       context={realtimeContext}
+                      learningMode={pendingLearningMode ?? undefined}
                       sessionId={state.sessionId ?? undefined}
                       onSessionEnd={handleRealtimeSessionEnd}
                     />
@@ -2119,6 +2120,7 @@ export default function ChatPage() {
                           layout="compact"
                           variant="conversation"
                           context={realtimeContext}
+                          learningMode={pendingLearningMode ?? undefined}
                           sessionId={state.sessionId ?? undefined}
                           onSessionEnd={handleRealtimeSessionEnd}
                         />

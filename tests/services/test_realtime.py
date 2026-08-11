@@ -5,6 +5,7 @@ import json
 
 from deeptutor.api.routers.realtime import (
     _append_realtime_transcript,
+    _learning_mode_from_session_messages,
     _question_for_start,
     _session_id_for_start,
     _transcript_for_event,
@@ -143,6 +144,17 @@ def test_realtime_opening_uses_the_current_explicit_question() -> None:
     assert "不要用泛化的你好、今天想学什么或重新介绍自己" in instructions
 
 
+def test_realtime_teacher_instructions_keep_server_selected_learning_policy() -> None:
+    instructions = teacher_instructions(
+        agent_scope="通用 AI Agent",
+        knowledge_point="当前对话",
+        prompt="实时语音交流",
+        teaching_policy="[受控学习模式：试卷分析]\n先核对试卷和作答。",
+    )
+    assert "本次由系统选定的教学方式" in instructions
+    assert "先核对试卷和作答" in instructions
+
+
 def test_realtime_context_is_generic_and_does_not_require_a_preset_pack() -> None:
     context, error = _question_for_start(
         {"type": "session.start", "variant": "conversation", "context": "我想弄懂这个任务"}
@@ -151,6 +163,56 @@ def test_realtime_context_is_generic_and_does_not_require_a_preset_pack() -> Non
     assert context is not None
     assert context["agent_scope"] == "通用 AI Agent"
     assert context["conversation_context"] == "我想弄懂这个任务"
+
+
+def test_realtime_learning_mode_is_allowlisted_and_becomes_teacher_policy() -> None:
+    context, error = _question_for_start(
+        {
+            "type": "session.start",
+            "variant": "conversation",
+            "learning_mode": "paper_analyst",
+        }
+    )
+    assert error is None
+    assert context is not None
+    assert "试卷分析" in context["teaching_policy"]
+
+    ignored, ignored_error = _question_for_start(
+        {
+            "type": "session.start",
+            "variant": "conversation",
+            "learning_mode": "browser-supplied-prompt",
+        }
+    )
+    assert ignored_error is None
+    assert ignored is not None
+    assert "teaching_policy" not in ignored
+
+
+def test_realtime_recovers_the_latest_recorded_learning_mode() -> None:
+    messages = [
+        {
+            "role": "user",
+            "metadata": {"request_snapshot": {"config": {"learning_mode": "math_teacher"}}},
+        },
+        {"role": "assistant", "metadata": {}},
+        {
+            "role": "user",
+            "metadata": {"request_snapshot": {"config": {"learning_mode": "paper_analyst"}}},
+        },
+    ]
+    assert _learning_mode_from_session_messages(messages) == "paper_analyst"
+    assert (
+        _learning_mode_from_session_messages(
+            [
+                {
+                    "role": "user",
+                    "metadata": {"request_snapshot": {"config": {"learning_mode": "untrusted"}}},
+                }
+            ]
+        )
+        == ""
+    )
 
 
 def test_realtime_rejects_unknown_variant() -> None:
