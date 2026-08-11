@@ -3036,5 +3036,15 @@
   "JSON object, e.g. {\"key\": \"value\"}": "JSON object, e.g. {\"key\": \"value\"}",
   "Loading sign in...": "Loading sign in...",
   "Photo question help": "Photo question help",
-  "Photo, voice, or text question": "Photo, voice, or text question"
+  "Photo, voice, or text question": "Photo, voice, or text question",
+  "推荐学习入口": "Recommended learning entry",
+  "初二数学 · 人教版": "Grade 8 Mathematics · PEP",
+  "入学衔接，先从一道题开始": "Transition into Grade 8, starting with one problem",
+  "资料逐步核验": "Materials under review",
+  "拍题问念念": "Ask about a photo",
+  "上传题目后，从卡住的那一步开始": "Upload a problem and start from where you are stuck",
+  "问课本知识点": "Ask about a concept",
+  "把一个概念讲到你能自己用": "Understand one concept well enough to use it",
+  "分析试卷": "Analyze a paper",
+  "上传试卷，找出下一步重点": "Upload a paper and find the next priority"
 }

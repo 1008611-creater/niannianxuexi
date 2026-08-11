@@ -35,6 +35,7 @@ import type { SelectedHistorySession } from "@/components/chat/HistorySessionPic
 import type { SelectedQuestionEntry } from "@/components/chat/QuestionBankPicker";
 import ChatComposer from "@/components/chat/home/ChatComposer";
 import RealtimeTutor from "@/components/space/RealtimeTutor";
+import JuniorMathBridge from "@/components/learning/JuniorMathBridge";
 import type { ContextBudget } from "@/components/chat/home/ContextBudgetChip";
 import { ChatMessageList } from "@/components/chat/home/ChatMessages";
 import { TurnNavigator } from "@/components/chat/home/TurnNavigator";
@@ -106,6 +107,10 @@ import { downloadChatMarkdown } from "@/lib/chat-export";
 import { buildChatOutline } from "@/lib/chat-outline";
 import { normalizeMessageContent } from "@/lib/message-content";
 import { buildRealtimeLearningContext } from "@/lib/realtime-learning-context";
+import {
+  JUNIOR_MATH_BRIDGE_TEMPLATE,
+  type LearningTemplateAction,
+} from "@/lib/learning-templates";
 import type { SpaceMemoryFile } from "@/lib/space-items";
 import {
   selectedBooksToPayload,
@@ -593,6 +598,32 @@ export default function ChatPage() {
   const handlePrefillComposer = useCallback((text: string) => {
     prefillInputRef.current?.(text);
   }, []);
+
+  const handleJuniorMathAction = useCallback(
+    (action: LearningTemplateAction) => {
+      const prompts: Record<LearningTemplateAction, string> = {
+        photo: "我会上传一道初二数学题，请先判断我卡在哪一步，再用一层提示引导我。",
+        concept: "请用初二入学数学衔接的方式讲清楚一个课本知识点，并给我一个简单例子检查理解。",
+        paper: "我会上传一份数学试卷，请先按知识点和错误类型分析，再给出最值得先复习的一项。",
+      };
+      try {
+        window.localStorage.setItem(
+          "niannian.learning-template",
+          JUNIOR_MATH_BRIDGE_TEMPLATE.id,
+        );
+      } catch {
+        // A blocked localStorage must not prevent the learning path.
+      }
+      handlePrefillComposer(prompts[action]);
+      window.requestAnimationFrame(() => {
+        document.getElementById("niannian-composer")?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    },
+    [handlePrefillComposer],
+  );
 
   // A clickable node inside an inlined visualization SVG (data-prompt) — and the
   // html widget's sendPrompt bridge — dispatch this window event; mirror it into
@@ -1995,6 +2026,9 @@ export default function ChatPage() {
             ) : !hasMessages ? (
               <div className={`flex w-full flex-1 min-h-0 justify-center overflow-y-auto px-6 ${studentModeRef.current ? "pb-7 pt-5 sm:pt-8" : "items-center pb-14"}`}>
                 <div className="flex w-full max-w-[960px] flex-col items-center justify-center gap-8">
+                  {studentModeRef.current ? (
+                    <JuniorMathBridge onStartAction={handleJuniorMathAction} />
+                  ) : null}
                   <div id="niannian-voice" className="w-full max-w-[720px] scroll-mt-6">
                     <RealtimeTutor
                       layout="call"
