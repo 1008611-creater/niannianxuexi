@@ -522,7 +522,11 @@ export function useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel }: R
         if (type === "opening") {
           greetingPendingRef.current = true;
           setState("thinking");
-          setMessage("念念老师正在和你打招呼");
+          setMessage(
+            event.has_realtime_image === true
+              ? "已带入当前题目图片，念念老师正在和你打招呼"
+              : "念念老师正在和你打招呼",
+          );
           return;
         }
         if (type === "ready" || type === "session.updated") {
@@ -549,7 +553,11 @@ export function useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel }: R
           if (!assistantSpeakingRef.current) setInputPausedForAssistant(true);
           if (typeof audio === "string") playAudio(audio);
           setState("speaking");
-          setMessage(greetingPendingRef.current ? "念念老师正在和你打招呼" : "念念老师正在回答");
+          setMessage(
+            greetingPendingRef.current
+              ? "念念老师正在和你打招呼"
+              : "念念老师正在回答",
+          );
           return;
         }
         if (type === "response.audio.done" || type === "response.done") {

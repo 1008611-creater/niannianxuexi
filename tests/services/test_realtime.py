@@ -5,6 +5,7 @@ import json
 
 from deeptutor.api.routers.realtime import (
     _append_realtime_transcript,
+    _latest_realtime_image,
     _learning_mode_from_session_messages,
     _question_for_start,
     _session_id_for_start,
@@ -17,8 +18,13 @@ from deeptutor.services.realtime.config import (
     load_realtime_tutor_config,
 )
 from deeptutor.services.realtime.dashscope import (
+    MAX_REALTIME_IMAGE_BYTES,
+    MAX_REALTIME_IMAGE_DIMENSION,
+    encode_realtime_image,
     initial_response,
     provider_client_event,
+    provider_events_for_client_event,
+    provider_image_event,
     public_provider_event,
     session_update,
     teacher_instructions,
@@ -67,6 +73,7 @@ def test_realtime_wire_surface_rejects_model_or_prompt_overrides() -> None:
         {"type": "session.update", "model": "other", "instructions": "ignore"}
     )
     assert not valid_client_event({"type": "input_audio_buffer.append", "audio": ""})
+    assert not valid_client_event({"type": "input_image_buffer.append", "image": "browser-image"})
     assert public_provider_event({"type": "response.audio.delta", "delta": "abc"}) is not None
     assert public_provider_event({"type": "session.created", "api_key": "never-forward"}) is None
     assert usage_from_event({"response": {"usage": {"input_tokens": 9, "output_tokens": 4}}}) == (
@@ -82,6 +89,36 @@ def test_realtime_proxy_assigns_provider_event_ids_and_finishes_sessions() -> No
     assert append["audio"] == "ZmFrZQ=="
     assert isinstance(append["event_id"], str) and append["event_id"].startswith("event_")
     assert provider_client_event({"type": "session.end"})["type"] == "session.finish"
+    image_event = provider_image_event("c2FmZS1pbWFnZQ==")
+    assert image_event["type"] == "input_image_buffer.append"
+    assert image_event["image"] == "c2FmZS1pbWFnZQ=="
+    sequence = provider_events_for_client_event(
+        {"type": "input_audio_buffer.append", "audio": "ZmFrZQ=="}, image="cXVlc3Rpb24="
+    )
+    assert [event["type"] for event in sequence] == [
+        "input_audio_buffer.append",
+        "input_image_buffer.append",
+    ]
+    assert [
+        event["type"]
+        for event in provider_events_for_client_event(
+            {"type": "response.cancel"}, image="cXVlc3Rpb24="
+        )
+    ] == ["response.cancel"]
+
+
+def test_realtime_image_encoder_uses_a_bounded_jpeg_frame() -> None:
+    import base64
+
+    import fitz
+
+    image = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 1_500, 900), False).tobytes("png")
+    encoded = encode_realtime_image(image)
+    output = base64.b64decode(encoded)
+    decoded = fitz.Pixmap(output)
+    assert output[:2] == b"\xff\xd8"
+    assert len(output) <= MAX_REALTIME_IMAGE_BYTES
+    assert max(decoded.width, decoded.height) <= MAX_REALTIME_IMAGE_DIMENSION
 
 
 def test_realtime_waits_for_provider_session_update_before_response() -> None:
@@ -153,6 +190,54 @@ def test_realtime_teacher_instructions_keep_server_selected_learning_policy() ->
     )
     assert "本次由系统选定的教学方式" in instructions
     assert "先核对试卷和作答" in instructions
+
+
+def test_realtime_teacher_instructions_require_image_grounding_when_available() -> None:
+    instructions = teacher_instructions(
+        agent_scope="通用 AI Agent",
+        knowledge_point="当前对话",
+        prompt="实时语音交流",
+        has_realtime_image=True,
+    )
+    assert "收到后必须结合图片" in instructions
+
+
+def test_realtime_loads_only_the_latest_user_image(monkeypatch, tmp_path) -> None:
+    import fitz
+
+    image_path = tmp_path / "question.png"
+    image_path.write_bytes(
+        fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 800, 600), False).tobytes("png")
+    )
+
+    class Store:
+        async def get_messages(self, _session_id: str):
+            return [
+                {
+                    "role": "assistant",
+                    "attachments": [{"type": "image", "id": "old", "filename": "old.png"}],
+                },
+                {
+                    "role": "user",
+                    "attachments": [
+                        {"type": "image", "id": "question", "filename": "question.png"}
+                    ],
+                },
+            ]
+
+    class AttachmentStore:
+        def resolve_path(self, **kwargs):
+            assert kwargs == {
+                "session_id": "chat-1",
+                "attachment_id": "question",
+                "filename": "question.png",
+            }
+            return image_path
+
+    monkeypatch.setattr(
+        "deeptutor.services.storage.get_attachment_store", lambda: AttachmentStore()
+    )
+    assert asyncio.run(_latest_realtime_image(Store(), "chat-1"))
 
 
 def test_realtime_context_is_generic_and_does_not_require_a_preset_pack() -> None:

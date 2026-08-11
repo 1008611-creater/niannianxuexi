@@ -18,8 +18,9 @@ from deeptutor.multi_user.context import get_current_user, reset_current_user
 from deeptutor.services import billing
 from deeptutor.services.realtime.config import load_realtime_tutor_config
 from deeptutor.services.realtime.dashscope import (
+    encode_realtime_image,
     initial_response,
-    provider_client_event,
+    provider_events_for_client_event,
     public_provider_event,
     session_update,
     teacher_instructions,
@@ -154,6 +155,49 @@ def _session_id_for_start(payload: object) -> str:
     return session_id.strip()[:128] if isinstance(session_id, str) else ""
 
 
+async def _latest_realtime_image(store: Any, session_id: str) -> str:
+    """Load the latest user-owned picture from this session for one voice turn."""
+    if not session_id:
+        return ""
+    try:
+        messages = await store.get_messages(session_id)
+        from deeptutor.services.storage import get_attachment_store
+
+        attachment_store = get_attachment_store()
+        resolve = getattr(attachment_store, "resolve_path", None)
+        if resolve is None:
+            return ""
+        for message in reversed(messages):
+            if message.get("role") != "user":
+                continue
+            attachments = message.get("attachments")
+            if not isinstance(attachments, list):
+                continue
+            for attachment in reversed(attachments):
+                if not isinstance(attachment, dict):
+                    continue
+                mime_type = str(attachment.get("mime_type") or "").lower()
+                if attachment.get("type") != "image" and not mime_type.startswith("image/"):
+                    continue
+                attachment_id = str(attachment.get("id") or "")
+                filename = str(attachment.get("filename") or "")
+                if not attachment_id or not filename:
+                    continue
+                path = resolve(
+                    session_id=session_id,
+                    attachment_id=attachment_id,
+                    filename=filename,
+                )
+                if path is None or path.stat().st_size > 12 * 1024 * 1024:
+                    continue
+                image = encode_realtime_image(path.read_bytes())
+                if image:
+                    return image
+    except Exception:
+        logger.warning("Could not prepare realtime image context for session %s", session_id)
+    return ""
+
+
 def _transcript_for_event(event: object) -> str:
     if not isinstance(event, dict):
         return ""
@@ -284,6 +328,7 @@ async def realtime_tutor(websocket: WebSocket) -> None:
 
         conversation_session_id = _session_id_for_start(start_payload)
         conversation_store: Any | None = None
+        realtime_image = ""
         if conversation_session_id:
             try:
                 candidate_store = get_session_store()
@@ -297,6 +342,9 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                         )
                         if mode:
                             question_context["teaching_policy"] = teaching_policy(mode)
+                    realtime_image = await _latest_realtime_image(
+                        candidate_store, conversation_session_id
+                    )
                 else:
                     conversation_session_id = ""
             except Exception:
@@ -310,7 +358,9 @@ async def realtime_tutor(websocket: WebSocket) -> None:
         started_at = time.monotonic()
         input_tokens = 0
         output_tokens = 0
-        instructions = teacher_instructions(**question_context)
+        instructions = teacher_instructions(
+            **question_context, has_realtime_image=bool(realtime_image)
+        )
         headers = {"Authorization": f"Bearer {config.api_key}"}
         if config.workspace_id:
             headers["X-DashScope-WorkSpace"] = config.workspace_id
@@ -362,6 +412,7 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                     websocket,
                     {
                         "type": "opening",
+                        "has_realtime_image": bool(realtime_image),
                     },
                 ):
                     return
@@ -377,6 +428,7 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                 session_status = "completed"
 
                 async def client_to_provider() -> None:
+                    image_sent = False
                     deadline = started_at + allowed_seconds
                     while True:
                         timeout = deadline - time.monotonic()
@@ -415,9 +467,13 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                                 websocket, {"type": "error", "message": "这个语音操作暂不支持。"}
                             )
                             continue
-                        await provider.send(
-                            json.dumps(provider_client_event(event), ensure_ascii=False)
-                        )
+                        image_for_event = "" if image_sent else realtime_image
+                        for provider_event in provider_events_for_client_event(
+                            event, image=image_for_event
+                        ):
+                            await provider.send(json.dumps(provider_event, ensure_ascii=False))
+                        if image_for_event and event.get("type") == "input_audio_buffer.append":
+                            image_sent = True
                         if event.get("type") == "session.end":
                             return
 
