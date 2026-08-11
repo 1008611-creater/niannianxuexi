@@ -9,12 +9,14 @@ import {
   type RealtimeTutorVariant,
   useRealtimeTutor,
 } from "@/hooks/useRealtimeTutor";
+import type { LearningMode } from "@/lib/learning-templates";
 
 type RealtimeTutorProps = {
   questionId?: string;
   sessionId?: string;
   variant?: RealtimeTutorVariant;
   context?: string;
+  learningMode?: LearningMode;
   layout?: "compact" | "call";
   disabled?: boolean;
   onTranscript?: (text: string) => void;
@@ -33,7 +35,7 @@ const stateIcon: Record<RealtimeTutorState, typeof Mic> = {
   error: Mic,
 };
 
-export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", layout = "compact", disabled = false, onTranscript, onSessionEnd, onFallback }: RealtimeTutorProps) {
+export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", learningMode, layout = "compact", disabled = false, onTranscript, onSessionEnd, onFallback }: RealtimeTutorProps) {
   const visualizerRef = useRef<HTMLDivElement>(null);
   const gestureStartRef = useRef(false);
   const updateAudioLevel = useCallback((level: number) => {
@@ -42,7 +44,7 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
   const tutor = useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel: updateAudioLevel });
   const Icon = stateIcon[tutor.state];
   const fallbackOnly = ["unavailable", "permission_denied", "error"].includes(tutor.state);
-  const startOptions: RealtimeTutorStartOptions = { questionId, sessionId, variant, context };
+  const startOptions: RealtimeTutorStartOptions = { questionId, sessionId, variant, context, learningMode };
   const startFromGesture = useCallback(() => {
     if (disabled || tutor.isActive || gestureStartRef.current) return;
     gestureStartRef.current = true;

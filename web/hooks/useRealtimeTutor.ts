@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { wsUrl } from "@/lib/api";
 import { base64ToPcm16, floatToPcm16, pcm16ToBase64, pcm16ToFloat32, resample } from "@/lib/realtime-tutor";
+import type { LearningMode } from "@/lib/learning-templates";
 
 export type RealtimeTutorState = "idle" | "connecting" | "listening" | "thinking" | "speaking" | "unavailable" | "permission_denied" | "error";
 export type RealtimeTutorVariant = "conversation" | "diagnostic" | "practice";
@@ -13,6 +14,7 @@ export type RealtimeTutorStartOptions = {
   sessionId?: string;
   variant?: RealtimeTutorVariant;
   context?: string;
+  learningMode?: LearningMode;
 };
 
 type RealtimeTutorOptions = {
@@ -506,6 +508,7 @@ export function useRealtimeTutor({ onTranscript, onSessionEnd, onAudioLevel }: R
         if (options.questionId) payload.question_id = options.questionId;
         if (options.sessionId) payload.session_id = options.sessionId;
         if (options.context) payload.context = options.context.slice(-6000);
+        if (options.learningMode) payload.learning_mode = options.learningMode;
         socket.send(JSON.stringify(payload));
       };
       socket.onmessage = (messageEvent) => {

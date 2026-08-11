@@ -111,12 +111,40 @@ def _question_for_start(payload: object) -> tuple[dict[str, str] | None, str | N
     if variant not in {"conversation", "diagnostic", "practice"}:
         return None, "当前语音会话不可用，请重新打开后再试。"
     context = payload.get("context", "")
-    return {
+    from deeptutor.services.learning_mode import normalize_learning_mode, teaching_policy
+
+    mode = normalize_learning_mode(payload.get("learning_mode"))
+    question_context = {
         "agent_scope": "通用 AI Agent",
         "knowledge_point": "当前对话",
         "prompt": "学生正在和念念进行实时语音交流。先听懂学生的问题、材料或任务，再给出准确、分步骤的帮助。",
         "conversation_context": context[:6000] if isinstance(context, str) else "",
-    }, None
+    }
+    if mode:
+        question_context["teaching_policy"] = teaching_policy(mode)
+    return question_context, None
+
+
+def _learning_mode_from_session_messages(messages: list[dict[str, Any]]) -> str:
+    """Recover the latest server-recorded learning mode for a voice follow-up."""
+    from deeptutor.services.learning_mode import normalize_learning_mode
+
+    for message in reversed(messages):
+        if message.get("role") != "user":
+            continue
+        metadata = message.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        snapshot = metadata.get("request_snapshot") or metadata.get("requestSnapshot")
+        if not isinstance(snapshot, dict):
+            continue
+        config = snapshot.get("config")
+        mode = normalize_learning_mode(
+            config.get("learning_mode") if isinstance(config, dict) else None
+        )
+        if mode:
+            return mode
+    return ""
 
 
 def _session_id_for_start(payload: object) -> str:
@@ -261,6 +289,14 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                 candidate_store = get_session_store()
                 if await candidate_store.get_session(conversation_session_id) is not None:
                     conversation_store = candidate_store
+                    if not question_context.get("teaching_policy"):
+                        from deeptutor.services.learning_mode import teaching_policy
+
+                        mode = _learning_mode_from_session_messages(
+                            await candidate_store.get_messages(conversation_session_id)
+                        )
+                        if mode:
+                            question_context["teaching_policy"] = teaching_policy(mode)
                 else:
                     conversation_session_id = ""
             except Exception:
