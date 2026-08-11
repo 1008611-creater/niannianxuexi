@@ -176,6 +176,21 @@ is a read-only rollback copy unless the user explicitly says otherwise.
   implementation and report the exact blocked push or PR step instead of
   claiming delivery. Do not force-push, merge a PR, publish production, or
   modify real user data unless the user explicitly authorizes that action.
+- Exact-commit PR acceptance: observed trigger: a PR passed static checks while
+  its screenshots came from another working tree, so production readiness could
+  not be proven. Protected action: recommending, merging, or deploying a PR.
+  Owner: the current production agent. The gate exits only when the exact PR
+  HEAD has proportionate automated checks, an accessible preview or isolated
+  candidate built from that same commit, the changed real user path has been
+  exercised on desktop and 390px when UI is affected, and the handoff states
+  the user outcome, known risk, and practical rollback. Give the user the link
+  plus one to three concrete actions and expected visible results; the user
+  judges the experience while the agent owns the technical evidence. A user
+  response such as `验收通过，发布` authorizes merge and deployment only for
+  that accepted HEAD; any later commit invalidates the acceptance and requires
+  refreshed evidence. If the user explicitly invokes the direct-release
+  exception, deploy the exact release candidate and perform the equivalent
+  real-path acceptance after traffic is switched.
 - Student-first product boundary: the current product is a general-purpose AI
   Agent centered on conversation with Nian Nian, photo questions, voice input,
   files, tools, and capabilities. Keep admin/provider/model configuration out
