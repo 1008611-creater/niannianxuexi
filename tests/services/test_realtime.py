@@ -310,9 +310,12 @@ def test_realtime_session_helpers_keep_session_ids_strict() -> None:
 
 
 def test_realtime_does_not_expose_student_transcripts_to_browser() -> None:
-    assert public_provider_event(
-        {
-            "type": "conversation.item.input_audio_transcription.completed",
-            "transcript": "这一步我不会",
-        }
-    ) is None
+    assert (
+        public_provider_event(
+            {
+                "type": "conversation.item.input_audio_transcription.completed",
+                "transcript": "这一步我不会",
+            }
+        )
+        is None
+    )
