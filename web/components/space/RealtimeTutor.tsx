@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Mic, MicOff, Square, Volume2 } from "lucide-react";
 
 import {
@@ -17,6 +17,8 @@ type RealtimeTutorProps = {
   variant?: RealtimeTutorVariant;
   context?: string;
   learningMode?: LearningMode;
+  learningTemplateId?: string;
+  learningTemplateRevision?: number;
   layout?: "compact" | "call";
   disabled?: boolean;
   onSessionEnd?: () => void;
@@ -34,7 +36,7 @@ const stateIcon: Record<RealtimeTutorState, typeof Mic> = {
   error: Mic,
 };
 
-export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", learningMode, layout = "compact", disabled = false, onSessionEnd, onFallback }: RealtimeTutorProps) {
+export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", learningMode, learningTemplateId, learningTemplateRevision, layout = "compact", disabled = false, onSessionEnd, onFallback }: RealtimeTutorProps) {
   const visualizerRef = useRef<HTMLDivElement>(null);
   const gestureStartRef = useRef(false);
   const updateAudioLevel = useCallback((level: number) => {
@@ -43,7 +45,10 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
   const tutor = useRealtimeTutor({ onSessionEnd, onAudioLevel: updateAudioLevel });
   const Icon = stateIcon[tutor.state];
   const fallbackOnly = ["unavailable", "permission_denied", "error"].includes(tutor.state);
-  const startOptions: RealtimeTutorStartOptions = { questionId, sessionId, variant, context, learningMode };
+  const startOptions = useMemo<RealtimeTutorStartOptions>(
+    () => ({ questionId, sessionId, variant, context, learningMode, learningTemplateId, learningTemplateRevision }),
+    [questionId, sessionId, variant, context, learningMode, learningTemplateId, learningTemplateRevision],
+  );
   const startFromGesture = useCallback(() => {
     if (disabled || tutor.isActive || gestureStartRef.current) return;
     gestureStartRef.current = true;

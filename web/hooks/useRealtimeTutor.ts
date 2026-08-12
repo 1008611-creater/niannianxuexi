@@ -15,6 +15,8 @@ export type RealtimeTutorStartOptions = {
   variant?: RealtimeTutorVariant;
   context?: string;
   learningMode?: LearningMode;
+  learningTemplateId?: string;
+  learningTemplateRevision?: number;
 };
 
 type RealtimeTutorOptions = {
@@ -493,6 +495,12 @@ export function useRealtimeTutor({ onSessionEnd, onAudioLevel }: RealtimeTutorOp
         if (options.sessionId) payload.session_id = options.sessionId;
         if (options.context) payload.context = options.context.slice(-6000);
         if (options.learningMode) payload.learning_mode = options.learningMode;
+        if (options.learningTemplateId) {
+          payload.learning_template_id = options.learningTemplateId;
+          if (options.learningTemplateRevision !== undefined) {
+            payload.learning_template_revision = options.learningTemplateRevision;
+          }
+        }
         socket.send(JSON.stringify(payload));
       };
       socket.onmessage = (messageEvent) => {

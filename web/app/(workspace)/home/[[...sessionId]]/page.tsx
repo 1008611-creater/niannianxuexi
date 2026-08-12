@@ -423,6 +423,8 @@ export default function ChatPage() {
   // becomes a server-owned teaching policy; students never configure Agents.
   const [pendingLearningMode, setPendingLearningMode] =
     useState<LearningMode | null>(null);
+  const [pendingLearningTemplateId, setPendingLearningTemplateId] =
+    useState<string | null>(null);
   const attachmentLimits = useAttachmentLimits();
   const [dragging, setDragging] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -622,6 +624,7 @@ export default function ChatPage() {
         // A blocked localStorage must not prevent the learning path.
       }
       setPendingLearningMode(LEARNING_MODE_FOR_ACTION[action]);
+      setPendingLearningTemplateId(JUNIOR_MATH_BRIDGE_TEMPLATE.id);
       handlePrefillComposer(prompts[action]);
       window.requestAnimationFrame(() => {
         document.getElementById("niannian-composer")?.scrollIntoView({
@@ -1646,6 +1649,13 @@ export default function ChatPage() {
       if (pendingLearningMode) {
         config = { ...(config ?? {}), learning_mode: pendingLearningMode };
       }
+      if (pendingLearningTemplateId) {
+        config = {
+          ...(config ?? {}),
+          learning_template_id: pendingLearningTemplateId,
+          learning_template_revision: JUNIOR_MATH_BRIDGE_TEMPLATE.revision,
+        };
+      }
 
       const memoryPayload = [...memoryReferencesPayload];
       const messageContent =
@@ -1684,6 +1694,7 @@ export default function ChatPage() {
       setSelectedQuestionEntries([]);
       setSelectedMemoryFiles([]);
       setPendingLearningMode(null);
+      setPendingLearningTemplateId(null);
     },
     [
       attachments,
@@ -1695,6 +1706,7 @@ export default function ChatPage() {
       memoryReferencesPayload,
       notebookReferencesPayload,
       pendingLearningMode,
+      pendingLearningTemplateId,
       questionNotebookReferencesPayload,
       quizConfig,
       quizPdf,
@@ -2051,6 +2063,7 @@ export default function ChatPage() {
                       variant="conversation"
                       context={realtimeContext}
                       learningMode={pendingLearningMode ?? undefined}
+                      learningTemplateId={pendingLearningTemplateId ?? undefined}
                       sessionId={state.sessionId ?? undefined}
                       onSessionEnd={handleRealtimeSessionEnd}
                     />
@@ -2121,6 +2134,7 @@ export default function ChatPage() {
                           variant="conversation"
                           context={realtimeContext}
                           learningMode={pendingLearningMode ?? undefined}
+                          learningTemplateId={pendingLearningTemplateId ?? undefined}
                           sessionId={state.sessionId ?? undefined}
                           onSessionEnd={handleRealtimeSessionEnd}
                         />

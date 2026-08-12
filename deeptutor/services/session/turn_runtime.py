@@ -199,6 +199,12 @@ def _request_snapshot_metadata(
         "knowledgeBases": _string_list(payload.get("knowledge_bases")),
         "language": str(payload.get("language", "en") or "en"),
     }
+    template_id = config.get("learning_template_id") if isinstance(config, dict) else None
+    template_revision = config.get("learning_template_revision") if isinstance(config, dict) else None
+    if template_id:
+        snapshot["learningTemplateId"] = str(template_id)
+        if template_revision is not None:
+            snapshot["learningTemplateRevision"] = int(template_revision)
     if attachments:
         snapshot["attachments"] = attachments
     if config:
@@ -436,11 +442,15 @@ def _append_learning_mode_context(
     language: str,
 ) -> str:
     """Add a server-owned teaching policy without trusting browser prompt text."""
+    from deeptutor.services.learning_template import template_context, template_from_config
     from deeptutor.services.learning_mode import teaching_policy
 
     mode = config.get("learning_mode") if isinstance(config, dict) else None
     policy = teaching_policy(mode, language=language)
-    return (memory_context + "\n" + policy).strip() if policy else memory_context
+    template = template_from_config(config)
+    template_text = template_context(template, learning_mode=mode, language=language)
+    additions = "\n".join(part for part in (template_text, policy if not template_text else "") if part)
+    return (memory_context + "\n" + additions).strip() if additions else memory_context
 
 
 def _format_followup_question_context(context: dict[str, Any], language: str = "en") -> str:
@@ -678,10 +688,24 @@ class TurnRuntimeManager:
             # retained in the request snapshot so regeneration keeps the same
             # teaching behaviour.
             "learning_mode",
+            "learning_template_id",
+            "learning_template_revision",
         )
         runtime_only_config = {
             key: raw_config.pop(key) for key in runtime_only_keys if key in raw_config
         }
+        if runtime_only_config.get("learning_template_id"):
+            try:
+                from deeptutor.services.learning_template import resolve_learning_template
+
+                template = resolve_learning_template(
+                    runtime_only_config["learning_template_id"],
+                    runtime_only_config.get("learning_template_revision"),
+                )
+            except ValueError as exc:
+                raise RuntimeError(str(exc)) from exc
+            runtime_only_config["learning_template_id"] = template["id"]
+            runtime_only_config["learning_template_revision"] = template["revision"]
         try:
             from deeptutor.runtime.request_contracts import validate_capability_config
 

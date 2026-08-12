@@ -113,8 +113,18 @@ def _question_for_start(payload: object) -> tuple[dict[str, str] | None, str | N
         return None, "当前语音会话不可用，请重新打开后再试。"
     context = payload.get("context", "")
     from deeptutor.services.learning_mode import normalize_learning_mode, teaching_policy
+    from deeptutor.services.learning_template import resolve_learning_template, template_context
 
     mode = normalize_learning_mode(payload.get("learning_mode"))
+    template_id = payload.get("learning_template_id")
+    template = None
+    if template_id:
+        try:
+            template = resolve_learning_template(
+                template_id, payload.get("learning_template_revision")
+            )
+        except ValueError as exc:
+            return None, str(exc)
     question_context = {
         "agent_scope": "通用 AI Agent",
         "knowledge_point": "当前对话",
@@ -123,6 +133,11 @@ def _question_for_start(payload: object) -> tuple[dict[str, str] | None, str | N
     }
     if mode:
         question_context["teaching_policy"] = teaching_policy(mode)
+    if template:
+        template_policy = template_context(template, learning_mode=None, language="zh")
+        question_context["teaching_policy"] = "\n".join(
+            part for part in (template_policy, question_context.get("teaching_policy", "")) if part
+        )
     return question_context, None
 
 
@@ -146,6 +161,35 @@ def _learning_mode_from_session_messages(messages: list[dict[str, Any]]) -> str:
         if mode:
             return mode
     return ""
+
+
+def _learning_template_from_session_messages(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Recover the latest validated template from a persisted voice session."""
+    from deeptutor.services.learning_template import resolve_learning_template
+
+    for message in reversed(messages):
+        if message.get("role") != "user":
+            continue
+        metadata = message.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        snapshot = metadata.get("request_snapshot") or metadata.get("requestSnapshot")
+        if not isinstance(snapshot, dict):
+            continue
+        template_id = snapshot.get("learningTemplateId")
+        revision = snapshot.get("learningTemplateRevision")
+        if not template_id:
+            config = snapshot.get("config")
+            if isinstance(config, dict):
+                template_id = config.get("learning_template_id")
+                revision = config.get("learning_template_revision")
+        if not template_id:
+            continue
+        try:
+            return resolve_learning_template(template_id, revision)
+        except ValueError:
+            continue
+    return None
 
 
 def _session_id_for_start(payload: object) -> str:
@@ -310,6 +354,30 @@ async def realtime_tutor(websocket: WebSocket) -> None:
                         )
                         if mode:
                             question_context["teaching_policy"] = teaching_policy(mode)
+                    if not any(
+                        marker in str(question_context.get("teaching_policy") or "")
+                        for marker in ("[受控学习模板]", "[Controlled learning template]")
+                    ):
+                        from deeptutor.services.learning_template import template_context
+
+                        template = _learning_template_from_session_messages(
+                            await candidate_store.get_messages(conversation_session_id)
+                        )
+                        if template:
+                            mode = _learning_mode_from_session_messages(
+                                await candidate_store.get_messages(conversation_session_id)
+                            )
+                            template_policy = template_context(
+                                template, learning_mode=None, language="zh"
+                            )
+                            question_context["teaching_policy"] = "\n".join(
+                                part
+                                for part in (
+                                    template_policy,
+                                    question_context.get("teaching_policy", ""),
+                                )
+                                if part
+                            )
                     realtime_image = await _latest_realtime_image(
                         candidate_store, conversation_session_id
                     )

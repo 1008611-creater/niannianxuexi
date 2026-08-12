@@ -26,3 +26,18 @@ def test_learning_mode_and_parent_profile_context_coexist():
     assert "一元一次方程" in context
     assert "错题诊断教练" in context
     assert "错误类型" in context
+
+
+def test_learning_template_context_is_server_owned_and_rights_aware():
+    context = _append_learning_mode_context(
+        "",
+        {
+            "learning_mode": "math_teacher",
+            "learning_template_id": "junior-math-bridge-pep",
+            "learning_template_revision": 1,
+        },
+        language="zh",
+    )
+    assert "初二入学衔接" in context
+    assert "人教版（待核实具体册次）" in context
+    assert "资料权利状态：pending_review" in context

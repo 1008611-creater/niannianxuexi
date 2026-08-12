@@ -6,6 +6,7 @@ import json
 from deeptutor.api.routers.realtime import (
     _latest_realtime_image,
     _learning_mode_from_session_messages,
+    _learning_template_from_session_messages,
     _question_for_start,
     _session_id_for_start,
     _wait_for_provider_session_ready,
@@ -272,6 +273,31 @@ def test_realtime_learning_mode_is_allowlisted_and_becomes_teacher_policy() -> N
     assert "teaching_policy" not in ignored
 
 
+def test_realtime_template_is_validated_and_added_to_teacher_policy() -> None:
+    context, error = _question_for_start(
+        {
+            "type": "session.start",
+            "variant": "conversation",
+            "learning_template_id": "junior-math-bridge-pep",
+            "learning_template_revision": 1,
+        }
+    )
+    assert error is None
+    assert context is not None
+    assert "初二入学衔接" in context["teaching_policy"]
+    assert "资料权利状态：pending_review" in context["teaching_policy"]
+
+    _, stale_error = _question_for_start(
+        {
+            "type": "session.start",
+            "variant": "conversation",
+            "learning_template_id": "junior-math-bridge-pep",
+            "learning_template_revision": 99,
+        }
+    )
+    assert stale_error == "学习模板版本已更新，请重新选择"
+
+
 def test_realtime_recovers_the_latest_recorded_learning_mode() -> None:
     messages = [
         {
@@ -296,6 +322,24 @@ def test_realtime_recovers_the_latest_recorded_learning_mode() -> None:
         )
         == ""
     )
+
+
+def test_realtime_recovers_the_latest_recorded_learning_template() -> None:
+    template = _learning_template_from_session_messages(
+        [
+            {
+                "role": "user",
+                "metadata": {
+                    "request_snapshot": {
+                        "learningTemplateId": "junior-math-bridge-pep",
+                        "learningTemplateRevision": 1,
+                    }
+                },
+            }
+        ]
+    )
+    assert template is not None
+    assert template["id"] == "junior-math-bridge-pep"
 
 
 def test_realtime_rejects_unknown_variant() -> None:
