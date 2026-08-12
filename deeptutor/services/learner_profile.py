@@ -43,6 +43,7 @@ QUESTIONS: tuple[dict[str, Any], ...] = (
         "answer": 1,
     },
 )
+QUESTION_IDS = frozenset(str(question["id"]) for question in QUESTIONS)
 
 
 def _profile_path() -> Path:
@@ -95,10 +96,31 @@ def public_questions() -> list[dict[str, Any]]:
     ]
 
 
+def validate_answers(answers: dict[str, int]) -> dict[str, int]:
+    """Require one valid answer for every server-owned check-in question."""
+    if set(answers) != QUESTION_IDS:
+        raise ValueError("请完成全部摸底题")
+    cleaned: dict[str, int] = {}
+    for question in QUESTIONS:
+        question_id = str(question["id"])
+        choice = answers[question_id]
+        if isinstance(choice, bool) or not isinstance(choice, int):
+            raise ValueError("摸底答案格式无效")
+        if choice < 0 or choice >= len(question["options"]):
+            raise ValueError("摸底答案选项无效")
+        cleaned[question_id] = choice
+    return cleaned
+
+
 def save_profile(
     *, child_name: str, grade: str, textbook_edition: str, answers: dict[str, int]
 ) -> dict[str, Any]:
-    clean_answers = {str(k): int(v) for k, v in answers.items() if str(k)}
+    child_name = child_name.strip()[:40]
+    grade = grade.strip()[:40]
+    textbook_edition = textbook_edition.strip()[:80]
+    if not child_name or not grade or not textbook_edition:
+        raise ValueError("孩子信息不能为空")
+    clean_answers = validate_answers(answers)
     results = []
     for question in QUESTIONS:
         choice = clean_answers.get(question["id"])
@@ -119,12 +141,21 @@ def save_profile(
         level = "正在建立方法"
     else:
         level = "基础较稳，可挑战综合题"
-    now = datetime.now(timezone.utc).isoformat()
+    path = _profile_path()
+    with _LOCK:
+        previous = _read() or {}
+        now = datetime.now(timezone.utc).isoformat()
+        created_at = str(previous.get("created_at") or now)
+        profile_id = str(previous.get("id") or f"child_{uuid4().hex}")
+        try:
+            previous_revision = int(previous.get("profile_revision") or 0)
+        except (TypeError, ValueError):
+            previous_revision = 0
     profile = {
-        "id": f"child_{uuid4().hex}",
-        "child_name": child_name.strip()[:40],
-        "grade": grade.strip()[:40],
-        "textbook_edition": textbook_edition.strip()[:80],
+        "id": profile_id,
+        "child_name": child_name,
+        "grade": grade,
+        "textbook_edition": textbook_edition,
         "assessment": {
             "version": 1,
             "answered": len(results),
@@ -151,12 +182,11 @@ def save_profile(
                 "purpose": "把进度转成家长能执行的建议",
             },
         ],
-        "profile_revision": 1,
-        "created_at": now,
+        "profile_revision": previous_revision + 1,
+        "created_at": created_at,
         "updated_at": now,
         "rights_status": "profile_only_no_external_materials",
     }
-    path = _profile_path()
     with _LOCK:
         path.write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
     return profile

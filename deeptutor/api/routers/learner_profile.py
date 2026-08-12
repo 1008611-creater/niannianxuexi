@@ -9,7 +9,12 @@ from pydantic import BaseModel, Field, field_validator
 
 from deeptutor.api.routers.auth import require_active_access
 from deeptutor.multi_user.context import get_current_user
-from deeptutor.services.learner_profile import get_profile, public_questions, save_profile
+from deeptutor.services.learner_profile import (
+    get_profile,
+    public_questions,
+    save_profile,
+    validate_answers,
+)
 
 router = APIRouter()
 
@@ -23,8 +28,14 @@ class SaveProfileRequest(BaseModel):
     @field_validator("answers")
     @classmethod
     def answer_count(cls, value: dict[str, int]) -> dict[str, int]:
-        if len(value) > 10:
-            raise ValueError("Too many assessment answers")
+        return validate_answers(value)
+
+    @field_validator("child_name", "grade", "textbook_edition")
+    @classmethod
+    def non_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("孩子信息不能为空")
         return value
 
 
