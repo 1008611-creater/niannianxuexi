@@ -23,7 +23,7 @@ export default function ChildProfileSetup({ onReady }: Props) {
   const [error, setError] = useState("");
   const [childName, setChildName] = useState("");
   const [grade, setGrade] = useState("junior-2-bridge");
-  const [textbook, setTextbook] = useState("人教版（具体册次待确认）");
+  const [textbook, setTextbook] = useState(() => t("PEP edition (specific volume to be confirmed)"));
   const [answers, setAnswers] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function ChildProfileSetup({ onReady }: Props) {
           </h2>
           <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">
             {profile
-              ? `${profile.assessment.level}${profile.assessment.weak_areas.length ? ` · 重点看 ${profile.assessment.weak_areas.join("、")}` : ""}`
+              ? `${profile.assessment.level}${profile.assessment.weak_areas.length ? ` · ${t("Focus on {{areas}}", { areas: profile.assessment.weak_areas.join("、") })}` : ""}`
               : t("Use one minute to match explanations to the learner's grade, material, and starting point")}
           </p>
         </div>

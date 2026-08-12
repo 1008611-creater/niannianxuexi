@@ -3067,5 +3067,19 @@
   "Junior 3": "初三",
   "Complete four quick questions so Nian Nian can adapt": "做 4 道小题，念念会据此调整讲解方式",
   "Later": "稍后",
-  "Complete and personalize": "完成并定制老师"
+  "Complete and personalize": "完成并定制老师",
+  "PEP edition (specific volume to be confirmed)": "人教版（具体册次待确认）",
+  "Focus on {{areas}}": "重点看 {{areas}}",
+  "Nian Nian": "念念",
+  "Talk with Nian Nian": "和念念老师说",
+  "Continue with recording or text": "用录音或文字继续",
+  "Turn off microphone": "关闭麦克风",
+  "Turn on microphone": "打开麦克风",
+  "Nian Nian is speaking": "念念老师正在说话",
+  "Listening for your voice": "正在检测你的声音",
+  "End conversation": "结束通话",
+  "The left button controls the microphone and the right button ends the conversation.": "左侧按钮控制麦克风，右侧按钮结束通话。",
+  "Use a recording instead": "改用录音作答",
+  "End": "结束",
+  "Use recording": "改用录音"
 }

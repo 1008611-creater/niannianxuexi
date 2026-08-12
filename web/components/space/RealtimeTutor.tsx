@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import { Mic, MicOff, Square, Volume2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import {
   type RealtimeTutorStartOptions,
@@ -37,6 +38,7 @@ const stateIcon: Record<RealtimeTutorState, typeof Mic> = {
 };
 
 export default function RealtimeTutor({ questionId, sessionId, variant = "conversation", context = "", learningMode, learningTemplateId, learningTemplateRevision, layout = "compact", disabled = false, onSessionEnd, onFallback }: RealtimeTutorProps) {
+  const { t } = useTranslation();
   const visualizerRef = useRef<HTMLDivElement>(null);
   const gestureStartRef = useRef(false);
   const updateAudioLevel = useCallback((level: number) => {
@@ -63,7 +65,7 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
         <div className="flex w-full flex-col items-center justify-center gap-6 text-center">
           <img
             src="/niannian-logo.svg"
-            alt="念念"
+            alt={t("Nian Nian")}
             width={104}
             height={104}
             className="h-24 w-24 select-none"
@@ -76,10 +78,10 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
             onClick={startFromGesture}
             className="inline-flex min-h-12 items-center gap-2 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-45"
           >
-            <Mic size={18} /> 和念念老师说
+            <Mic size={18} /> {t("Talk with Nian Nian")}
           </button>
           {tutor.message ? <p role="status" className="max-w-xs text-sm leading-6 text-[var(--muted-foreground)]">{tutor.message}</p> : null}
-          {fallbackOnly && onFallback ? <button type="button" onClick={onFallback} className="min-h-11 text-sm font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-300">用录音或文字继续</button> : null}
+          {fallbackOnly && onFallback ? <button type="button" onClick={onFallback} className="min-h-11 text-sm font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-300">{t("Continue with recording or text")}</button> : null}
         </div>
       );
     }
@@ -92,8 +94,8 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
           <button
             type="button"
             onClick={tutor.toggleMicrophone}
-            aria-label={tutor.microphoneEnabled ? "关闭麦克风" : "打开麦克风"}
-            title={tutor.microphoneEnabled ? "关闭麦克风" : "打开麦克风"}
+            aria-label={tutor.microphoneEnabled ? t("Turn off microphone") : t("Turn on microphone")}
+            title={tutor.microphoneEnabled ? t("Turn off microphone") : t("Turn on microphone")}
             className={`realtime-call-control ${tutor.microphoneEnabled ? "is-enabled" : ""}`}
           >
             {tutor.microphoneEnabled ? <Mic size={21} /> : <MicOff size={21} />}
@@ -103,7 +105,7 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
             ref={visualizerRef}
             className={`realtime-call-core ${isSpeaking ? "is-speaking" : ""} ${isListening ? "is-listening" : ""}`}
             data-state={tutor.state}
-            aria-label={isSpeaking ? "念念老师正在说话" : isListening ? "正在检测你的声音" : tutor.message}
+            aria-label={isSpeaking ? t("Nian Nian is speaking") : isListening ? t("Listening for your voice") : tutor.message}
           >
             <span className="realtime-call-ring realtime-call-ring-one" aria-hidden="true" />
             <span className="realtime-call-ring realtime-call-ring-two" aria-hidden="true" />
@@ -119,8 +121,8 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
           <button
             type="button"
             onClick={tutor.stop}
-            aria-label="结束通话"
-            title="结束通话"
+            aria-label={t("End conversation")}
+            title={t("End conversation")}
             className="realtime-call-control realtime-call-stop"
           >
             <Square size={18} fill="currentColor" />
@@ -129,7 +131,7 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
         <p role="status" className={`min-h-6 text-sm font-medium ${isSpeaking ? "text-violet-700 dark:text-violet-300" : "text-[var(--foreground)]"}`}>
           {tutor.message}
         </p>
-        <p className="sr-only">左侧按钮控制麦克风，右侧按钮结束通话。</p>
+        <p className="sr-only">{t("The left button controls the microphone and the right button ends the conversation.")}</p>
       </section>
     );
   }
@@ -144,10 +146,10 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
           onClick={startFromGesture}
           className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-600/35 px-4 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/10 disabled:opacity-45 dark:text-emerald-300"
         >
-          <Mic size={17} /> 和念念老师说
+          <Mic size={17} /> {t("Talk with Nian Nian")}
         </button>
         {tutor.message ? <p role="status" className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{tutor.message}</p> : null}
-        {fallbackOnly && onFallback ? <button type="button" onClick={onFallback} className="mt-2 min-h-11 text-sm font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-300">改用录音作答</button> : null}
+        {fallbackOnly && onFallback ? <button type="button" onClick={onFallback} className="mt-2 min-h-11 text-sm font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-300">{t("Use a recording instead")}</button> : null}
       </div>
     );
   }
@@ -157,8 +159,8 @@ export default function RealtimeTutor({ questionId, sessionId, variant = "conver
       <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white ${tutor.state === "speaking" ? "animate-pulse" : ""}`}><Icon size={17} /></span>
       <p className="text-sm font-medium text-[var(--foreground)]">{tutor.message}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={tutor.stop} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700"><Square size={14} fill="currentColor" /> 结束</button>
-        {onFallback ? <button type="button" onClick={() => { tutor.stop(); onFallback(); }} className="min-h-11 px-2 text-sm font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-300">改用录音</button> : null}
+        <button type="button" onClick={tutor.stop} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700"><Square size={14} fill="currentColor" /> {t("End")}</button>
+        {onFallback ? <button type="button" onClick={() => { tutor.stop(); onFallback(); }} className="min-h-11 px-2 text-sm font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-300">{t("Use recording")}</button> : null}
       </div>
     </div>
   );
