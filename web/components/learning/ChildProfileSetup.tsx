@@ -36,6 +36,17 @@ export default function ChildProfileSetup({ onReady }: Props) {
         if (nextProfile) {
           setChildName(nextProfile.child_name);
           setTextbook(nextProfile.textbook_edition);
+          setAnswers(
+            Object.fromEntries(
+              (nextProfile.assessment.results ?? [])
+                .filter(
+                  (result) =>
+                    typeof result.question_id === "string" &&
+                    Number.isInteger(result.choice),
+                )
+                .map((result) => [result.question_id, result.choice as number]),
+            ),
+          );
         }
       })
       .catch(() => {

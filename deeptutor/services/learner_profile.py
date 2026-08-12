@@ -130,6 +130,7 @@ def save_profile(
             {
                 "question_id": question["id"],
                 "skill": question["skill"],
+                "choice": choice,
                 "correct": choice == question["answer"],
             }
         )

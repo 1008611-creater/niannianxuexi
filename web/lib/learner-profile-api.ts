@@ -17,6 +17,7 @@ export type LearnerProfile = {
     total: number;
     level: string;
     weak_areas: string[];
+    results?: { question_id: string; choice?: number; correct: boolean }[];
   };
   agent_presets: { id: string; name: string; purpose: string }[];
   updated_at: string;

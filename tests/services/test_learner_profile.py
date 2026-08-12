@@ -38,6 +38,7 @@ def test_profile_is_scoped_and_builds_agent_context(monkeypatch, tmp_path):
     assert learner_profile.get_profile() == profile
     assert profile["assessment"]["score"] == 2
     assert "一元一次方程" in profile["assessment"]["weak_areas"]
+    assert profile["assessment"]["results"][0]["choice"] == 2
     assert len(profile["agent_presets"]) == 3
     summary = learner_profile.context_summary(profile)
     assert "小宇" in summary
