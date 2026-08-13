@@ -442,8 +442,8 @@ def _append_learning_mode_context(
     language: str,
 ) -> str:
     """Add a server-owned teaching policy without trusting browser prompt text."""
-    from deeptutor.services.learning_template import template_context, template_from_config
     from deeptutor.services.learning_mode import teaching_policy
+    from deeptutor.services.learning_template import template_context, template_from_config
 
     mode = config.get("learning_mode") if isinstance(config, dict) else None
     policy = teaching_policy(mode, language=language)
