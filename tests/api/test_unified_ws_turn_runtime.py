@@ -342,6 +342,108 @@ async def test_turn_runtime_persists_llm_selection_in_turn_snapshot(
 
 
 @pytest.mark.asyncio
+async def test_turn_runtime_keeps_photo_and_learning_template_in_context(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """A photo question keeps its image and the selected learning contract."""
+    store = SQLiteSessionStore(tmp_path / "chat_history.db")
+    runtime = TurnRuntimeManager(store)
+    captured: dict[str, object] = {}
+
+    class FakeContextBuilder:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def build(self, **_kwargs):
+            return SimpleNamespace(
+                conversation_history=[],
+                conversation_summary="",
+                context_text="",
+                token_count=0,
+                budget=0,
+            )
+
+    class FakeAttachmentStore:
+        async def put(self, **kwargs):
+            captured["stored_attachment"] = kwargs
+            return "/api/attachments/session/photo/question.png"
+
+    class FakeOrchestrator:
+        async def handle(self, context):
+            captured["context"] = context
+            yield StreamEvent(
+                type=StreamEventType.CONTENT,
+                source="chat",
+                stage="responding",
+                content="先看图中的已知条件。",
+                metadata={"call_kind": "llm_final_response"},
+            )
+            yield StreamEvent(type=StreamEventType.DONE, source="chat")
+
+    monkeypatch.setattr("deeptutor.services.llm.config.get_llm_config", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "deeptutor.services.session.context_builder.ContextBuilder", FakeContextBuilder
+    )
+    monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(
+        "deeptutor.services.storage.get_attachment_store", lambda: FakeAttachmentStore()
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.memory.get_memory_store",
+        lambda: SimpleNamespace(read_l3_concat=lambda: "", emit=_noop_async),
+    )
+    monkeypatch.setattr("deeptutor.services.skill.get_skill_service", _fake_skill_service)
+    monkeypatch.setattr("deeptutor.services.persona.get_persona_service", _fake_persona_service)
+
+    _, turn = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "这道题我不会，请结合图片讲第一步",
+            "session_id": None,
+            "capability": "chat",
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [
+                {
+                    "type": "image",
+                    "filename": "question.png",
+                    "mime_type": "image/png",
+                    "base64": "cXVlc3Rpb24=",
+                }
+            ],
+            "language": "zh",
+            "config": {
+                "learning_mode": "math_teacher",
+                "learning_template_id": "junior-math-bridge-pep",
+                "learning_template_revision": 1,
+            },
+        }
+    )
+
+    async for _event in runtime.subscribe_turn(turn["id"], after_seq=0):
+        pass
+
+    context = captured["context"]
+    assert context.config_overrides["learning_mode"] == "math_teacher"
+    assert context.config_overrides["learning_template_id"] == "junior-math-bridge-pep"
+    assert context.config_overrides["learning_template_revision"] == 1
+    assert len(context.attachments) == 1
+    assert context.attachments[0].type == "image"
+    assert context.attachments[0].base64 == "cXVlc3Rpb24="
+    assert captured["stored_attachment"]["data"] == b"question"
+
+    detail = await store.get_session_with_messages(turn["session_id"])
+    assert detail is not None
+    snapshot = detail["messages"][0]["metadata"]["request_snapshot"]
+    assert snapshot["learningTemplateId"] == "junior-math-bridge-pep"
+    assert snapshot["learningTemplateRevision"] == 1
+    assert snapshot["config"]["learning_mode"] == "math_teacher"
+    assert snapshot["attachments"][0]["url"].endswith("/question.png")
+    assert snapshot["attachments"][0]["base64"] == ""
+
+
+@pytest.mark.asyncio
 async def test_turn_runtime_session_persona_persists_falls_back_and_clears(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
