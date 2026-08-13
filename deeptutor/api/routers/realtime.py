@@ -163,7 +163,9 @@ def _learning_mode_from_session_messages(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
-def _learning_template_from_session_messages(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _learning_template_from_session_messages(
+    messages: list[dict[str, Any]],
+) -> dict[str, Any] | None:
     """Recover the latest validated template from a persisted voice session."""
     from deeptutor.services.learning_template import resolve_learning_template
 
