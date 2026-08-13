@@ -49,8 +49,8 @@ def test_agentic_chat_final_prompt_uses_selected_language(
     assert "Write ALL reader-facing text" in en_prompt
     # Persona phrasing differs by language so the prompts are not just
     # English text with a Chinese tail appended.
-    assert "你是 DeepTutor" in zh_prompt
-    assert "You are DeepTutor" in en_prompt
+    assert "你是念念老师" in zh_prompt
+    assert "You are NianNian" in en_prompt
 
 
 def test_mastery_plugin_system_prompt_uses_localized_fallback(
@@ -73,8 +73,14 @@ def test_mastery_plugin_system_prompt_uses_localized_fallback(
 
     assert "## mastery_tutor" in zh_prompt
     assert "精通导师模式" in zh_prompt
+    assert "初中数学内测默认内容" not in zh_prompt
+    assert "错因与再练" in zh_prompt
+    assert "不要立即给完整答案" in zh_prompt
     assert "## mastery_tutor" in en_prompt
     assert "Mastery Tutor mode" in en_prompt
+    assert "Default junior-middle-school math content" not in en_prompt
+    assert "Error diagnosis and retry" in en_prompt
+    assert "do not immediately give the completed answer" in en_prompt
 
 
 def test_legacy_chat_agent_system_prompt_uses_selected_language() -> None:
@@ -87,9 +93,9 @@ def test_legacy_chat_agent_system_prompt_uses_selected_language() -> None:
         history=[],
     )
 
-    assert "你是 DeepTutor" in zh_messages[0]["content"]
+    assert "你是念念老师" in zh_messages[0]["content"]
     assert "请严格使用中文" in zh_messages[0]["content"]
-    assert "You are DeepTutor" in en_messages[0]["content"]
+    assert "You are NianNian" in en_messages[0]["content"]
     assert "Write ALL reader-facing text" in en_messages[0]["content"]
 
 

@@ -44,7 +44,14 @@ export function useVoiceRecorder(onTranscript: (text: string) => void) {
       return;
     }
     streamRef.current = stream;
-    const recorder = new MediaRecorder(stream);
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream);
+    } catch {
+      releaseStream();
+      setError("Recording is not supported in this browser.");
+      return;
+    }
     chunksRef.current = [];
     recorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) chunksRef.current.push(event.data);
@@ -82,6 +89,7 @@ export function useVoiceRecorder(onTranscript: (text: string) => void) {
         const data = (await resp.json()) as { text?: string };
         const text = (data.text || "").trim();
         if (text) onTranscriptRef.current(text);
+        else setError("No speech detected.");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Transcription failed.");
       } finally {

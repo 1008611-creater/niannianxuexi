@@ -186,7 +186,7 @@ export default function ModelSelector({
         aria-label={t("Select model")}
         aria-expanded={open}
         {...lingerProps}
-        className={`inline-flex h-8 shrink-0 items-center rounded-lg px-2 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
+        className={`inline-flex min-h-11 min-w-11 shrink-0 items-center rounded-lg px-2 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
           disabled
             ? "cursor-not-allowed text-[var(--border)]"
             : open

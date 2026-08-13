@@ -13,7 +13,7 @@ from .runtime_settings import RuntimeSettingsService
 PROJECT_ROOT = get_runtime_home()
 DEFAULT_BACKEND_PORT = 8001
 DEFAULT_FRONTEND_PORT = 3782
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE = "zh"
 
 
 @dataclass(frozen=True, slots=True)

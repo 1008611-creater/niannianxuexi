@@ -2,12 +2,13 @@
 
 Adapters are stateless singletons keyed by the ``adapter`` field on the
 resolved config. The OpenAI-compatible pair covers OpenAI, Groq, SiliconFlow,
-OpenRouter, Azure OpenAI and local vLLM/LM Studio; add bespoke providers
-(DashScope native, ElevenLabs, Gemini, Deepgram) by registering new keys here.
+OpenRouter, Azure OpenAI and local vLLM/LM Studio. Bespoke providers register
+their own keys here.
 """
 
 from __future__ import annotations
 
+from deeptutor.services.voice.adapters.mimo import MiMoTTSAdapter
 from deeptutor.services.voice.adapters.openai_compat import (
     OpenAICompatSTTAdapter,
     OpenAICompatTTSAdapter,
@@ -18,6 +19,7 @@ from deeptutor.services.voice.base import BaseSTTAdapter, BaseTTSAdapter, VoiceP
 TTS_ADAPTERS: dict[str, BaseTTSAdapter] = {
     "openai_compat": OpenAICompatTTSAdapter(),
     "openrouter_tts": OpenRouterTTSAdapter(),
+    "mimo_tts": MiMoTTSAdapter(),
 }
 
 STT_ADAPTERS: dict[str, BaseSTTAdapter] = {

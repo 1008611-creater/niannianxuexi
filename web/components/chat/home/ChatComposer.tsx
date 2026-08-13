@@ -15,6 +15,7 @@ import {
   BookOpen,
   Bot,
   Brain,
+  Camera,
   Check,
   ChevronDown,
   ChevronRight,
@@ -37,6 +38,7 @@ import {
   isSvgFilename,
 } from "@/lib/doc-attachments";
 import { useTranslation } from "react-i18next";
+import { usePathname } from "next/navigation";
 import type { SelectedHistorySession } from "@/components/chat/HistorySessionPicker";
 import type { SelectedQuestionEntry } from "@/components/chat/QuestionBankPicker";
 import type { SelectedRecord } from "@/lib/notebook-selection-types";
@@ -182,6 +184,7 @@ export default memo(function ChatComposer({
   capMenuOpen,
   spaceMenuOpen,
   hasMessages,
+  sessionId,
   attachments,
   attachmentError,
   activeCap,
@@ -248,6 +251,7 @@ export default memo(function ChatComposer({
   onCancelStreaming,
   prefillInputRef,
   inputPlaceholder,
+  messages = [],
 }: {
   composerRef: RefObject<HTMLDivElement | null>;
   capMenuRef: RefObject<HTMLDivElement | null>;
@@ -259,6 +263,7 @@ export default memo(function ChatComposer({
   capMenuOpen: boolean;
   spaceMenuOpen: boolean;
   hasMessages: boolean;
+  sessionId?: string | null;
   attachments: PendingAttachment[];
   attachmentError: string | null;
   activeCap: CapabilityDef;
@@ -358,11 +363,24 @@ export default memo(function ChatComposer({
    * ``AskUserOptions`` chips) can drop a string into the textarea
    * without owning the composer's imperative handle directly.
    */
-  prefillInputRef?: React.MutableRefObject<((text: string) => void) | null>;
-  /** Override the composer placeholder (e.g. quiz follow-up). */
-  inputPlaceholder?: string;
-}) {
+    prefillInputRef?: React.MutableRefObject<((text: string) => void) | null>;
+    /** Override the composer placeholder (e.g. quiz follow-up). */
+    inputPlaceholder?: string;
+    messages?: Array<{ role: "user" | "assistant" | "system"; content: string }>;
+  }) {
   const { t } = useTranslation();
+  const pathname = usePathname();
+  const studentPath =
+    pathname === "/home" ||
+    pathname.startsWith("/home/") ||
+    pathname.startsWith("/space/score/photo");
+  const [studentMode, setStudentMode] = useState(studentPath);
+  useEffect(() => {
+    setStudentMode(
+      studentPath ||
+        new URLSearchParams(window.location.search).get("student") === "1",
+    );
+  }, [studentPath]);
   const CapIcon = activeCap.icon;
 
   const [hasContent, setHasContent] = useState(false);
@@ -372,6 +390,7 @@ export default memo(function ChatComposer({
   const restoreFocusOnReturnRef = useRef(false);
   const inputHandleRef = useRef<ComposerInputHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   if (lastCapMenuOpen !== capMenuOpen) {
     setLastCapMenuOpen(capMenuOpen);
     if (!capMenuOpen) setMoreCapsOpen(false);
@@ -387,13 +406,32 @@ export default memo(function ChatComposer({
     };
   }, [prefillInputRef]);
 
-  // Microphone → speech-to-text. Appends the transcript to whatever is already
-  // in the composer so a dictated phrase can be combined with typed text.
+  // Voice is the primary answer path for students. A fresh dictation sends as
+  // soon as it is transcribed; existing draft text stays editable for review.
   const handleTranscript = useCallback((text: string) => {
     const current = inputHandleRef.current?.getValue() || "";
-    const next = current.trim() ? `${current.trimEnd()} ${text}` : text;
-    inputHandleRef.current?.setValue(next);
-  }, []);
+    if (
+      current.trim() ||
+      isStreaming ||
+      (capabilityNeedsConfig && !capabilityConfigConfirmed)
+    ) {
+      const next = current.trim() ? `${current.trimEnd()} ${text}` : text;
+      inputHandleRef.current?.setValue(next);
+      setHasContent(true);
+      if (capabilityNeedsConfig && !capabilityConfigConfirmed) {
+        onRequestConfigConfirm();
+      }
+      return;
+    }
+    onSend(text);
+    setHasContent(false);
+  }, [
+    capabilityConfigConfirmed,
+    capabilityNeedsConfig,
+    isStreaming,
+    onRequestConfigConfirm,
+    onSend,
+  ]);
   const recorder = useVoiceRecorder(handleTranscript);
 
   // Composer-row compaction: when the available width drops below ~620 px
@@ -422,15 +460,46 @@ export default memo(function ChatComposer({
     fileInputRef.current?.click();
   }, []);
 
+  const handlePickCamera = useCallback(() => {
+    cameraInputRef.current?.click();
+  }, []);
+
   const handleFileInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const picked = Array.from(event.target.files ?? []);
-      if (picked.length) onAddFiles(picked);
+      if (picked.length) {
+        onAddFiles(picked);
+      }
       // Reset so picking the same file twice still triggers `change`.
       event.target.value = "";
     },
     [onAddFiles],
   );
+
+  const handleCameraInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const photo = event.target.files?.[0];
+      if (photo) {
+        onAddFiles([photo]);
+        const current = inputHandleRef.current?.getValue() || "";
+        if (!current.trim()) {
+          inputHandleRef.current?.setValue(t("请先识别题目并问我做到哪一步，先给一层提示；只有我明确要求核对或完成尝试后，再给完整解法。"));
+          setHasContent(true);
+        }
+      }
+      // Selecting the same question photo twice should still trigger change.
+      event.target.value = "";
+    },
+    [onAddFiles, t],
+  );
+
+  const voiceErrorMessage = recorder.error
+    ? recorder.error === "Recording is not supported in this browser."
+      ? t("当前浏览器不支持录音，请使用文字或拍题。")
+      : recorder.error === "Microphone permission denied."
+        ? t("请允许使用麦克风后再试。")
+        : t("语音识别失败，请重试或改用文字输入。")
+    : null;
 
   const focusTextarea = useCallback(() => {
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -654,10 +723,7 @@ export default memo(function ChatComposer({
   return (
     <div
       ref={composerRef}
-      className={`relative z-20 mx-auto w-full shrink-0 px-6 pb-5 ${hasMessages ? "pt-1 max-w-[960px]" : "max-w-[768px]"}`}
-      style={{
-        transition: "max-width 650ms cubic-bezier(0.16, 1, 0.3, 1)",
-      }}
+      className={`relative z-20 mx-auto w-full shrink-0 px-6 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] max-md:max-h-[50dvh] max-md:overflow-y-auto max-md:overscroll-y-contain max-md:touch-pan-y max-md:[-webkit-overflow-scrolling:touch] ${hasMessages ? "pt-1 max-w-[960px]" : "max-w-[768px]"}`}
     >
       {hasMessages && (
         <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-transparent to-[var(--background)]/72" />
@@ -696,6 +762,18 @@ export default memo(function ChatComposer({
             multiple
             accept={ATTACHMENT_ACCEPT}
             onChange={handleFileInputChange}
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+
+          <input
+            id="niannian-camera-input"
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleCameraInputChange}
             className="hidden"
             aria-hidden="true"
             tabIndex={-1}
@@ -852,16 +930,22 @@ export default memo(function ChatComposer({
             </div>
           )}
 
+          {voiceErrorMessage && (
+            <div role="alert" className="px-4 pb-2 text-[12px] text-red-600">
+              {voiceErrorMessage}
+            </div>
+          )}
+
           {/* Claude-style chrome-free toolbar: no divider against the input
               area, no pill borders — quiet text/icon buttons that surface
               on hover. */}
           <div className="px-3 pb-2 pt-0.5">
             <div className="flex items-center gap-1">
-              <div className="relative">
+              <div className={studentMode ? "hidden" : "relative"}>
                 <button
                   ref={capBtnRef}
                   onClick={() => onSetCapMenuOpen((v) => !v)}
-                  className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
+                  className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
                     capMenuOpen
                       ? "bg-[var(--primary)]/10 text-[var(--primary)]"
                       : "text-[var(--foreground)] hover:bg-[var(--muted)]/55"
@@ -883,7 +967,7 @@ export default memo(function ChatComposer({
                 {capMenuOpen && (
                   <div
                     ref={capMenuRef}
-                    className="dt-popup-up absolute bottom-full left-0 z-50 mb-1.5 w-[260px] overflow-visible rounded-xl border border-[var(--border)] bg-[var(--popover)] py-1 shadow-lg backdrop-blur-md"
+                    className="dt-popup-up absolute bottom-full left-0 z-50 mb-1.5 w-[260px] overflow-visible rounded-xl border border-[var(--border)] bg-[var(--popover)] py-1 shadow-lg backdrop-blur-md max-md:fixed max-md:inset-x-3 max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] max-md:mb-0 max-md:max-h-[min(28rem,calc(100dvh-8rem))] max-md:w-auto max-md:overflow-y-auto max-md:overscroll-y-contain max-md:touch-pan-y max-md:[-webkit-overflow-scrolling:touch]"
                   >
                     {capabilities
                       .filter((cap) => !cap.loopEngine)
@@ -983,12 +1067,22 @@ export default memo(function ChatComposer({
 
               <div className="relative flex min-w-0 flex-1 items-center">
                 <button
+                  type="button"
+                  onClick={handlePickCamera}
+                  disabled={isStreaming}
+                  title={t("拍题")}
+                  aria-label={t("拍题")}
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm transition-[background-color,transform] active:scale-90 disabled:opacity-40 ${studentMode ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)]/90"}`}
+                >
+                  <Camera size={19} strokeWidth={1.9} />
+                </button>
+                <button
                   ref={spaceBtnRef}
                   type="button"
                   onClick={() => onSetSpaceMenuOpen((v) => !v)}
                   title={t("Add files & context")}
                   aria-label={t("Add files & context")}
-                  className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-150 active:scale-90 ${
+                  className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-150 active:scale-90 ${
                     spaceMenuOpen
                       ? "bg-[var(--muted)] text-[var(--foreground)]"
                       : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]/55 hover:text-[var(--foreground)]"
@@ -1005,7 +1099,7 @@ export default memo(function ChatComposer({
                   {spaceMenuOpen && (
                     <motion.div
                       ref={spaceMenuRef}
-                      className="absolute bottom-full left-0 z-50 mb-1.5"
+                      className="absolute bottom-full left-0 z-50 mb-1.5 max-md:fixed max-md:inset-x-3 max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] max-md:mb-0 max-md:max-h-[min(28rem,calc(100dvh-8rem))] max-md:overflow-y-auto max-md:overscroll-y-contain max-md:touch-pan-y max-md:[-webkit-overflow-scrolling:touch]"
                       style={{ transformOrigin: "bottom left" }}
                       initial={{ opacity: 0, y: 6, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1039,7 +1133,7 @@ export default memo(function ChatComposer({
               </div>
 
               <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                {connectedAgents.length > 0 && onSelectAgent ? (
+                {!studentMode && connectedAgents.length > 0 && onSelectAgent ? (
                   <AgentSelector
                     agents={connectedAgents}
                     selected={selectedAgent}
@@ -1048,14 +1142,14 @@ export default memo(function ChatComposer({
                     onBudgetChange={onSubagentBudgetChange}
                   />
                 ) : null}
-                {knowledgeBases.length > 0 ? (
+                {!studentMode && knowledgeBases.length > 0 ? (
                   <KnowledgeSelector
                     knowledgeBases={knowledgeBases}
                     selected={selectedKnowledgeBases}
                     onToggle={onToggleKB}
                   />
                 ) : null}
-                {onPersonaSelectionChange ? (
+                {!studentMode && onPersonaSelectionChange ? (
                   <PersonaSelector
                     value={personaSelection ?? ""}
                     onChange={onPersonaSelectionChange}
@@ -1063,15 +1157,15 @@ export default memo(function ChatComposer({
                     onOpenChange={onPersonaSelectorOpenChange}
                   />
                 ) : null}
-                <ModelSelector
+                {!studentMode && <ModelSelector
                   options={llmOptions}
                   activeDefault={activeLLMDefault}
                   value={llmSelection}
                   loading={llmOptionsLoading}
                   error={llmOptionsError}
                   onChange={onSelectLLM}
-                />
-                {contextBudget ? (
+                />}
+                {!studentMode && contextBudget ? (
                   <ContextBudgetChip budget={contextBudget} />
                 ) : null}
 
@@ -1079,7 +1173,7 @@ export default memo(function ChatComposer({
                   type="button"
                   onClick={recorder.toggle}
                   disabled={recorder.state === "transcribing" || isStreaming}
-                  className={`group relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] transition-[background-color,color,transform] duration-150 active:scale-90 disabled:opacity-40 ${
+                  className={`group relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] transition-[background-color,color,transform] duration-150 active:scale-90 disabled:opacity-40 ${
                     recorder.state === "recording"
                       ? "bg-red-500/15 text-red-500"
                       : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]/55 hover:text-[var(--foreground)]"
@@ -1121,7 +1215,7 @@ export default memo(function ChatComposer({
                   type="button"
                   onClick={handleSendButtonClick}
                   disabled={sendState === "idle"}
-                  className={`group relative ml-1 inline-grid h-8 w-8 shrink-0 place-items-center rounded-full transition-[background-color,box-shadow,transform] duration-200 active:scale-95 ${SEND_STATE_CLASS[sendState]}`}
+                  className={`group relative ml-1 inline-grid h-11 w-11 shrink-0 place-items-center rounded-full transition-[background-color,box-shadow,transform] duration-200 active:scale-95 ${SEND_STATE_CLASS[sendState]}`}
                   aria-label={sendLabel}
                   title={sendTitle}
                 >

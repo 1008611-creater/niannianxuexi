@@ -191,7 +191,7 @@ class LearningService:
                 is_correct=is_correct,
                 user_answer=user_answer,
                 self_attribution=self_attribution,
-                error_type=None if is_correct else classify_error(user_answer),
+                error_type=None if is_correct else classify_error(user_answer, expected_answer),
             ),
         )
         if knowledge_point_id:

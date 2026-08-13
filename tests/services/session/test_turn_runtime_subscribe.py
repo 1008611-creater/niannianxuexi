@@ -101,3 +101,34 @@ async def test_start_turn_clears_orphan_running_turn_before_create(
     persisted = await store.get_turn(stale["id"])
     assert persisted is not None
     assert persisted["status"] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_start_turn_keeps_allowed_learning_mode_for_execution_and_replay(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A prepared learning action must survive validation and be replayable."""
+
+    store = SQLiteSessionStore(tmp_path / "chat_history.db")
+    runtime = TurnRuntimeManager(store)
+
+    async def _noop_run_turn(_execution):
+        return None
+
+    monkeypatch.setattr(runtime, "_run_turn", _noop_run_turn)
+    _, turn = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "session_id": None,
+            "capability": "chat",
+            "content": "请讲这道题",
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [],
+            "language": "zh",
+            "config": {"learning_mode": "math_teacher"},
+        }
+    )
+
+    execution = runtime._executions[turn["id"]]
+    assert execution.payload["config"] == {"learning_mode": "math_teacher"}

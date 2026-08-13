@@ -12,6 +12,21 @@ function eventMeta(event: StreamEvent): ContentMeta {
   return (event.metadata ?? {}) as ContentMeta;
 }
 
+/**
+ * Some OpenAI-compatible gateways occasionally repeat an entire completed
+ * response in the same stream. Collapse only a substantial, byte-for-byte
+ * duplicated answer; never apply fuzzy de-duplication to normal prose.
+ */
+export function collapseExactDoubledAnswer(content: string): string {
+  const leading = content.match(/^\s*/)?.[0] ?? "";
+  const trailing = content.match(/\s*$/)?.[0] ?? "";
+  const body = content.trim();
+  if (body.length < 80 || body.length % 2 !== 0) return content;
+  const half = body.length / 2;
+  if (body.slice(0, half) !== body.slice(half)) return content;
+  return `${leading}${body.slice(0, half)}${trailing}`;
+}
+
 export function shouldAppendEventContent(event: StreamEvent): boolean {
   if (event.type !== "content") return false;
   const meta = eventMeta(event);

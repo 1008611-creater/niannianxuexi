@@ -37,6 +37,27 @@ MemoryReference = Literal["recent", "profile", "scope", "preferences", "summary"
 _ANSWER_CONTENT_CALL_KINDS = frozenset({"llm_final_response", "agent_loop_round"})
 
 
+def _collapse_exact_doubled_answer(content: str) -> str:
+    """Keep one copy when a provider repeats an entire completed answer.
+
+    This is deliberately stricter than general text de-duplication: it only
+    collapses a non-trivial payload made of two byte-for-byte identical halves.
+    Ordinary emphasis (for example, repeating a short word) and two similar
+    paragraphs remain untouched.
+    """
+    if not content:
+        return content
+    leading = content[: len(content) - len(content.lstrip())]
+    trailing = content[len(content.rstrip()) :]
+    body = content.strip()
+    if len(body) < 80 or len(body) % 2:
+        return content
+    half = len(body) // 2
+    if body[:half] != body[half:]:
+        return content
+    return f"{leading}{body[:half]}{trailing}"
+
+
 def _should_capture_assistant_content(event: StreamEvent) -> bool:
     if event.type != StreamEventType.CONTENT:
         return False
@@ -178,6 +199,14 @@ def _request_snapshot_metadata(
         "knowledgeBases": _string_list(payload.get("knowledge_bases")),
         "language": str(payload.get("language", "en") or "en"),
     }
+    template_id = config.get("learning_template_id") if isinstance(config, dict) else None
+    template_revision = (
+        config.get("learning_template_revision") if isinstance(config, dict) else None
+    )
+    if template_id:
+        snapshot["learningTemplateId"] = str(template_id)
+        if template_revision is not None:
+            snapshot["learningTemplateRevision"] = int(template_revision)
     if attachments:
         snapshot["attachments"] = attachments
     if config:
@@ -406,6 +435,26 @@ def _extract_regenerate_flag(config: dict[str, Any] | None) -> bool:
     if isinstance(raw, str):
         return raw.strip().lower() in {"true", "1", "yes"}
     return bool(raw)
+
+
+def _append_learning_mode_context(
+    memory_context: str,
+    config: dict[str, Any] | None,
+    *,
+    language: str,
+) -> str:
+    """Add a server-owned teaching policy without trusting browser prompt text."""
+    from deeptutor.services.learning_mode import teaching_policy
+    from deeptutor.services.learning_template import template_context, template_from_config
+
+    mode = config.get("learning_mode") if isinstance(config, dict) else None
+    policy = teaching_policy(mode, language=language)
+    template = template_from_config(config)
+    template_text = template_context(template, learning_mode=mode, language=language)
+    additions = "\n".join(
+        part for part in (template_text, policy if not template_text else "") if part
+    )
+    return (memory_context + "\n" + additions).strip() if additions else memory_context
 
 
 def _format_followup_question_context(context: dict[str, Any], language: str = "en") -> str:
@@ -639,10 +688,28 @@ class TurnRuntimeManager:
             # key — stripped before validation, merged back into the turn config
             # and read by the subagent capability from context.config_overrides.
             "subagent_consult_budget",
+            # Student learning actions send only this allowlisted mode. It is
+            # retained in the request snapshot so regeneration keeps the same
+            # teaching behaviour.
+            "learning_mode",
+            "learning_template_id",
+            "learning_template_revision",
         )
         runtime_only_config = {
             key: raw_config.pop(key) for key in runtime_only_keys if key in raw_config
         }
+        if runtime_only_config.get("learning_template_id"):
+            try:
+                from deeptutor.services.learning_template import resolve_learning_template
+
+                template = resolve_learning_template(
+                    runtime_only_config["learning_template_id"],
+                    runtime_only_config.get("learning_template_revision"),
+                )
+            except ValueError as exc:
+                raise RuntimeError(str(exc)) from exc
+            runtime_only_config["learning_template_id"] = template["id"]
+            runtime_only_config["learning_template_revision"] = template["revision"]
         try:
             from deeptutor.runtime.request_contracts import validate_capability_config
 
@@ -764,6 +831,16 @@ class TurnRuntimeManager:
             preference_update["persona"] = persona_pref
         await self.store.update_session_preferences(session["id"], preference_update)
         turn = await self.store.create_turn(session["id"], capability=capability)
+        # Paid accounts reserve their remaining balance before a model call.
+        # Admin-granted accounts keep the existing unlimited path.
+        from deeptutor.multi_user.context import get_current_user
+        from deeptutor.services.billing import BillingError, reserve_turn
+
+        try:
+            reserve_turn(get_current_user().id, turn["id"])
+        except BillingError as exc:
+            await self.store.update_turn_status(turn["id"], "failed", str(exc))
+            raise RuntimeError(str(exc)) from exc
         execution = _TurnExecution(
             turn_id=turn["id"],
             session_id=session["id"],
@@ -1133,10 +1210,12 @@ class TurnRuntimeManager:
             # time by the agent loop, but anything that slips through must
             # never be persisted as the user-facing answer.
             return clean_thinking_tags(
-                "".join(
-                    text
-                    for call_id, text in content_segments
-                    if not (call_id and call_id in narration_call_ids)
+                _collapse_exact_doubled_answer(
+                    "".join(
+                        text
+                        for call_id, text in content_segments
+                        if not (call_id and call_id in narration_call_ids)
+                    )
                 )
             )
 
@@ -1146,6 +1225,10 @@ class TurnRuntimeManager:
         generated_attachments: list[dict[str, Any]] = []
         seen_artifact_urls: set[str] = set()
         stream_done_sent = False
+        billing_settled = False
+        billing_user_id = ""
+        billing_summary: dict[str, Any] | None = None
+        billing_model = ""
         llm_scope_token: Token[LLMConfig | None] | None = None
         reset_active_llm_selection: Callable[[Token[LLMConfig | None] | None], None] | None = None
         # One queue per turn for ``ask_user`` style pause-resume.
@@ -1159,6 +1242,9 @@ class TurnRuntimeManager:
             return await reply_queue.get()
 
         try:
+            from deeptutor.multi_user.context import get_current_user
+
+            billing_user_id = get_current_user().id
             from deeptutor.agents.notebook import NotebookAnalysisAgent
             from deeptutor.book.context import build_book_context
             from deeptutor.core.context import Attachment, UnifiedContext
@@ -1322,6 +1408,19 @@ class TurnRuntimeManager:
             )
             memory_store = get_memory_store()
             memory_context = memory_store.read_l3_concat() if memory_references else ""
+            # A parent-owned learner profile is an orchestration hint, not a
+            # curriculum package. Keep it compact and inject it server-side so
+            # chat, photo, and file turns use the same child context.
+            from deeptutor.services.learner_profile import context_summary
+
+            learner_context = context_summary()
+            if learner_context:
+                memory_context = (memory_context + "\n" + learner_context).strip()
+            memory_context = _append_learning_mode_context(
+                memory_context,
+                request_config,
+                language=str(payload.get("language", "zh") or "zh"),
+            )
 
             # Persona: at most one behaviour preset per turn, eagerly
             # injected (a persona must shape the voice from the first
@@ -1643,6 +1742,19 @@ class TurnRuntimeManager:
                         seen_artifact_urls.add(attachment["url"])
                         generated_attachments.append(attachment)
 
+            from deeptutor.services.billing import extract_usage_summary, settle_turn
+
+            billing_summary, billing_model = extract_usage_summary(assistant_events)
+            settle_turn(
+                billing_user_id,
+                turn_id,
+                summary=billing_summary,
+                capability=capability_name,
+                model=billing_model,
+                status="completed",
+            )
+            billing_settled = True
+
             # Office binaries the browser cannot render need their text pulled
             # out now, while the files are still on disk, or their preview card
             # opens empty. Skipped on the cancelled path below: that one is
@@ -1725,6 +1837,19 @@ class TurnRuntimeManager:
                 except Exception:
                     logger.debug("Failed to generate session title", exc_info=True)
         except asyncio.CancelledError:
+            if not billing_settled and billing_user_id:
+                with contextlib.suppress(Exception):
+                    from deeptutor.services.billing import settle_turn
+
+                    settle_turn(
+                        billing_user_id,
+                        turn_id,
+                        summary=billing_summary,
+                        capability=capability_name,
+                        model=billing_model,
+                        status="cancelled",
+                    )
+                    billing_settled = True
             if not stream_done_sent:
                 await self._publish_live_event(
                     execution,
@@ -1769,6 +1894,19 @@ class TurnRuntimeManager:
                 await self.store.update_turn_status(turn_id, "cancelled", "Turn cancelled")
             raise
         except Exception as exc:
+            if not billing_settled and billing_user_id:
+                with contextlib.suppress(Exception):
+                    from deeptutor.services.billing import settle_turn
+
+                    settle_turn(
+                        billing_user_id,
+                        turn_id,
+                        summary=billing_summary,
+                        capability=capability_name,
+                        model=billing_model,
+                        status="completed" if stream_done_sent else "failed",
+                    )
+                    billing_settled = True
             if stream_done_sent:
                 logger.error(
                     "Post-stream persistence for turn %s failed: %s",

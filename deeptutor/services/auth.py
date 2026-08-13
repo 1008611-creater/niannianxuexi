@@ -111,6 +111,9 @@ def _make_user_record(hashed: str, role: str = "user", created_at: str = "") -> 
         "role": role,
         "created_at": created_at or datetime.now(timezone.utc).isoformat(),
         "disabled": False,
+        "access_status": "active" if role == "admin" else "pending",
+        "access_source": "system" if role == "admin" else None,
+        "paid_until": None,
         "avatar": "",
     }
 
@@ -369,6 +372,11 @@ def authenticate(username: str, password: str) -> TokenPayload | None:
     if not record:
         return None
 
+    from deeptutor.multi_user.identity import effective_access_status
+
+    if effective_access_status(record) == "disabled":
+        return None
+
     hashed = record.get("hash", "") if isinstance(record, dict) else record
     if not verify_password(password, hashed):
         return None
@@ -376,3 +384,35 @@ def authenticate(username: str, password: str) -> TokenPayload | None:
     role = record.get("role", "user") if isinstance(record, dict) else "user"
     user_id = str(record.get("id") or "") if isinstance(record, dict) else ""
     return TokenPayload(username=username, role=role, user_id=user_id)
+
+
+def get_access_status(username: str) -> dict[str, Any] | None:
+    """Return only non-secret access metadata for an account."""
+    info = get_user_info(username)
+    if info is None:
+        return None
+    return {
+        "access_status": info.get("access_status", "pending"),
+        "access_source": info.get("access_source"),
+        "paid_until": info.get("paid_until"),
+    }
+
+
+def set_access(
+    username: str,
+    access_status: str,
+    access_source: str | None = None,
+    paid_until: str | None = None,
+) -> bool:
+    from deeptutor.multi_user.identity import set_access as _set_access
+
+    if access_status not in {"pending", "active", "disabled"}:
+        raise ValueError(f"Invalid access status: {access_status!r}")
+    if access_source not in {None, "admin", "payment", "system"}:
+        raise ValueError(f"Invalid access source: {access_source!r}")
+    return _set_access(
+        username,
+        access_status,  # type: ignore[arg-type]
+        access_source,  # type: ignore[arg-type]
+        paid_until,
+    )

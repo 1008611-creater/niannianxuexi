@@ -80,7 +80,14 @@ def test_blank_identity_falls_back_to_product():
 def test_shipped_yaml_carries_partner_templates():
     root = Path(__file__).resolve().parents[3] / "deeptutor/agents/chat/prompts"
     for lang in ("en", "zh"):
-        data = yaml.safe_load((root / lang / "agentic_chat.yaml").read_text())
+        data = yaml.safe_load((root / lang / "agentic_chat.yaml").read_text(encoding="utf-8"))
         assert "{name}" in data["general_partner"]
         assert "{description}" in data["general_partner_description"]
         assert "partner_turn_policy" in data
+
+
+def test_shipped_chat_identity_uses_niannian_brand():
+    root = Path(__file__).resolve().parents[3] / "deeptutor/agents/chat/prompts"
+    zh = yaml.safe_load((root / "zh" / "agentic_chat.yaml").read_text(encoding="utf-8"))
+    assert "念念" in zh["general"]
+    assert "DeepTutor" not in zh["general"]

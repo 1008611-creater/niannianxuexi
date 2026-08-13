@@ -1,0 +1,17 @@
+# A versioned release layer over the exact image currently serving
+# tutor.cauai.fun. Python dependencies stay in the known-good base image;
+# source and the already-verified Next standalone build are replaced here.
+FROM deeptutor-realtime-call-20260809-v20-voice-quota:latest
+
+COPY --chown=deeptutor:deeptutor release-overlay/deeptutor/ /app/deeptutor/
+COPY --chown=deeptutor:deeptutor release-overlay/deeptutor_cli/ /app/deeptutor_cli/
+
+# The base image predates the course-package removal. Remove files that are
+# intentionally absent from the current source tree so they cannot be loaded
+# by an old import path or discovered by a runtime file scan.
+RUN find /app/deeptutor -type f \( -iname '*scoreboost*' -o -iname '*score_boost*' \) -delete
+
+# `next build` has already type-checked and bundled the student-side changes.
+COPY --chown=deeptutor:deeptutor release-overlay/web/standalone/ /app/web/
+COPY --chown=deeptutor:deeptutor release-overlay/web/static/ /app/web/.next/static/
+COPY --chown=deeptutor:deeptutor release-overlay/web/public/ /app/web/public/

@@ -1,0 +1,51 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  JUNIOR_MATH_BRIDGE_TEMPLATE,
+  LEARNING_MODE_FOR_ACTION,
+} from "../lib/learning-templates";
+
+test("the first learning entry stays a bounded, rights-aware template", () => {
+  const template = JUNIOR_MATH_BRIDGE_TEMPLATE;
+  assert.equal(template.id, "junior-math-bridge-pep");
+  assert.equal(template.grade, "初二入学衔接");
+  assert.equal(template.subject, "数学");
+  assert.equal(template.textbookEdition, "人教版（待核实具体册次）");
+  assert.equal(template.rightsStatus, "pending_review");
+  assert.deepEqual(template.defaultActions, ["photo", "concept", "paper"]);
+  assert.equal(template.toolPolicy, "student_safe");
+  assert.equal(template.teachingPolicy, "guided_first");
+  assert.equal(LEARNING_MODE_FOR_ACTION.photo, "math_teacher");
+  assert.equal(LEARNING_MODE_FOR_ACTION.concept, "math_teacher");
+  assert.equal(LEARNING_MODE_FOR_ACTION.paper, "paper_analyst");
+});
+test("the student homepage owns the entry without creating a template center", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const page = await readFile(
+    "app/(workspace)/home/[[...sessionId]]/page.tsx",
+    "utf8",
+  );
+  const card = await readFile("components/learning/JuniorMathBridge.tsx", "utf8");
+  assert.match(page, /<JuniorMathBridge/);
+  assert.match(page, /handleJuniorMathAction/);
+  assert.match(page, /learning_mode: pendingLearningMode/);
+  assert.match(page, /learningMode=\{pendingLearningMode \?\? undefined\}/);
+  assert.match(page, /action === "photo"/);
+  assert.match(page, /niannian-camera-input/);
+  const realtimeTutor = await readFile("components/space/RealtimeTutor.tsx", "utf8");
+  const realtimeHook = await readFile("hooks/useRealtimeTutor.ts", "utf8");
+  const composer = await readFile("components/chat/home/ChatComposer.tsx", "utf8");
+  assert.match(realtimeTutor, /learningMode\?: LearningMode/);
+  assert.match(realtimeTutor, /learningMode(?:, learningTemplateId)?/);
+  assert.match(realtimeHook, /learning_mode = options\.learningMode/);
+  assert.match(realtimeHook, /learning_template_id = options\.learningTemplateId/);
+  assert.match(composer, /id="niannian-camera-input"/);
+  assert.match(composer, /onAddFiles\(\[photo\]\)/);
+  assert.match(composer, /请先识别题目并问我做到哪一步/);
+  assert.doesNotMatch(page, /模板中心|课程包导航/);
+  assert.match(card, /data-testid="junior-math-bridge"/);
+  assert.match(card, /拍题问念念/);
+  assert.match(card, /问课本知识点/);
+  assert.match(card, /分析试卷/);
+});

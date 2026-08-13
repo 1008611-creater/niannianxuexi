@@ -6,9 +6,14 @@ export interface UserRecord {
   role: "admin" | "user";
   created_at: string;
   disabled?: boolean;
+  access_status: "pending" | "active" | "disabled";
+  access_source?: "admin" | "payment" | "system" | null;
+  paid_until?: string | null;
   /** Avatar marker: "", "icon:<name>:<color>", or "img:<version>". */
   avatar?: string;
 }
+
+export type UserAccessStatus = "pending" | "active" | "disabled";
 
 export async function listUsers(): Promise<UserRecord[]> {
   const res = await apiFetch(apiUrl("/api/v1/auth/users"));
@@ -44,6 +49,32 @@ export async function setUserRole(
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.detail ?? "Failed to update role");
+  }
+}
+
+export async function setUserAccess(
+  username: string,
+  accessStatus: UserAccessStatus,
+  options: {
+    accessSource?: "admin" | "payment" | "system";
+    paidUntil?: string | null;
+  } = {},
+): Promise<void> {
+  const res = await apiFetch(
+    apiUrl(`/api/v1/auth/users/${encodeURIComponent(username)}/access`),
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_status: accessStatus,
+        access_source: options.accessSource ?? (accessStatus === "active" ? "admin" : null),
+        paid_until: options.paidUntil ?? null,
+      }),
+    },
+  );
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Failed to update account access");
   }
 }
 

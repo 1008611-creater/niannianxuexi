@@ -1,0 +1,54 @@
+plugins {
+    id "com.android.application"
+}
+
+// Public builds should work immediately after installation. A local URL can
+// still be supplied explicitly with -PdeeptutorUrl for development.
+def configuredServerUrl = project.findProperty("deeptutorUrl") ?: "https://tutor.cauai.fun"
+def releaseKeystorePath = System.getenv("NIANNIAN_RELEASE_KEYSTORE")
+def releaseStorePassword = System.getenv("NIANNIAN_RELEASE_STORE_PASSWORD")
+def releaseKeyAlias = System.getenv("NIANNIAN_RELEASE_KEY_ALIAS") ?: "niannian"
+def hasReleaseSigning = releaseKeystorePath && releaseStorePassword && file(releaseKeystorePath).exists()
+
+android {
+    namespace "com.deeptutor.scoreboost"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.deeptutor.scoreboost"
+        minSdk 24
+        targetSdk 35
+        // Keep every distributable APK above the legacy 1.x debug shells so
+        // Android can install it as an in-place update on existing phones.
+        versionCode 2026080906
+        versionName "1.1.4"
+        buildConfigField "String", "DEFAULT_SERVER_URL", "\"${configuredServerUrl}\""
+    }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseStorePassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasReleaseSigning) signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

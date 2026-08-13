@@ -675,6 +675,59 @@ export function ServiceConfigEditor({ service }: { service: ServiceName }) {
                             />
                           </div>
                         </div>
+                        <div>
+                          <div className="mb-1.5 text-[12px] text-[var(--muted-foreground)]">
+                            {t("Aspect ratio / Resolution")}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              className={inputClass}
+                              value={activeModel.aspect_ratio || ""}
+                              onChange={(e) =>
+                                updateModelField(
+                                  service,
+                                  "aspect_ratio",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="1:1"
+                            />
+                            <input
+                              className={inputClass}
+                              value={activeModel.resolution || ""}
+                              onChange={(e) =>
+                                updateModelField(
+                                  service,
+                                  "resolution",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="4k"
+                            />
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <div className="mb-1.5 text-[12px] text-[var(--muted-foreground)]">
+                            {t("Reference image URLs")}
+                          </div>
+                          <textarea
+                            className={`${inputClass} min-h-20 resize-y py-2`}
+                            value={activeModel.reference_image_urls || ""}
+                            onChange={(e) =>
+                              updateModelField(
+                                service,
+                                "reference_image_urls",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="https://example.com/reference.png"
+                          />
+                          <p className="mt-1.5 text-[11px] text-[var(--muted-foreground)]">
+                            {t(
+                              "RunningHub Image2 requires at least one public http/https image URL. Use one URL per line.",
+                            )}
+                          </p>
+                        </div>
                       </>
                     )}
                     {service === "videogen" && (
@@ -1048,8 +1101,25 @@ function ProfileFields({
               ) {
                 updateModelField(service, "model", match.default_model);
               }
+              if (service === "imagegen" && match?.default_aspect_ratio) {
+                updateModelField(
+                  service,
+                  "aspect_ratio",
+                  match.default_aspect_ratio,
+                );
+              }
+              if (service === "imagegen" && match?.default_resolution) {
+                updateModelField(service, "resolution", match.default_resolution);
+              }
               if (service === "tts" && match?.default_voice) {
                 updateModelField(service, "voice", match.default_voice);
+              }
+              if (service === "tts" && match?.default_response_format) {
+                updateModelField(
+                  service,
+                  "response_format",
+                  match.default_response_format,
+                );
               }
             }}
           >

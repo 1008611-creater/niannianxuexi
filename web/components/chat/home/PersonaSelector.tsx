@@ -6,6 +6,24 @@ import { useTranslation } from "react-i18next";
 import { useLingerExpand } from "@/hooks/use-linger-expand";
 import { listPersonas, type PersonaInfo } from "@/lib/personas-api";
 
+const BUILT_IN_PERSONA_COPY: Record<
+  string,
+  { label: string; description: string }
+> = {
+  peer: {
+    label: "学习伙伴",
+    description: "和你一起思考、讨论和探索的学习伙伴",
+  },
+  teacher: {
+    label: "耐心老师",
+    description: "通过提问一步步引导你理解，不急着直接给答案",
+  },
+  "research-assistant": {
+    label: "研究助手",
+    description: "适合查资料、整理观点和核对信息来源",
+  },
+};
+
 /**
  * Session persona switcher (composer toolbar).
  *
@@ -32,7 +50,7 @@ export default function PersonaSelector({
   onOpenChange?: (open: boolean) => void;
   placement?: "top" | "bottom";
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
   const { expanded, linger, triggerProps: lingerProps } = useLingerExpand(open);
@@ -90,18 +108,41 @@ export default function PersonaSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const useChineseCopy = i18n.resolvedLanguage?.startsWith("zh") ?? false;
+  const getPersonaCopy = (persona: PersonaInfo) =>
+    useChineseCopy
+      ? BUILT_IN_PERSONA_COPY[persona.name] ?? {
+          label: persona.name,
+          description: persona.description,
+        }
+      : { label: persona.name, description: persona.description };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return personas;
     return personas.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q),
+      (persona) => {
+        const copy = useChineseCopy
+          ? BUILT_IN_PERSONA_COPY[persona.name] ?? {
+              label: persona.name,
+              description: persona.description,
+            }
+          : { label: persona.name, description: persona.description };
+        return (
+          persona.name.toLowerCase().includes(q) ||
+          copy.label.toLowerCase().includes(q) ||
+          copy.description.toLowerCase().includes(q)
+        );
+      },
     );
-  }, [personas, query]);
+  }, [personas, query, useChineseCopy]);
 
   const defaultLabel = t("Default");
-  const label = value || defaultLabel;
+  const selectedPersona = personas.find((persona) => persona.name === value);
+  const label = selectedPersona ? getPersonaCopy(selectedPersona).label : defaultLabel;
+  const defaultDescription = useChineseCopy
+    ? "默认学习模式：按当前学习任务进行讲解、答疑和练习"
+    : t("No persona — the assistant's standard behavior");
   const menuPlacementClass =
     placement === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5";
 
@@ -127,7 +168,7 @@ export default function PersonaSelector({
         aria-label={t("Select persona")}
         aria-expanded={open}
         {...lingerProps}
-        className={`inline-flex h-8 shrink-0 items-center rounded-lg px-2 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
+        className={`inline-flex min-h-11 min-w-11 shrink-0 items-center rounded-lg px-2 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] ${
           open
             ? "bg-[var(--muted)] text-[var(--foreground)]"
             : value
@@ -153,7 +194,7 @@ export default function PersonaSelector({
 
       {open && (
         <div
-          className={`absolute right-0 z-50 ${menuPlacementClass} w-[min(280px,calc(100vw-32px))] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--popover)] shadow-lg backdrop-blur-md`}
+          className={`absolute right-0 z-50 ${menuPlacementClass} w-[min(280px,calc(100vw-32px))] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--popover)] shadow-lg backdrop-blur-md max-md:fixed max-md:inset-x-3 max-md:bottom-[calc(env(safe-area-inset-bottom)+5rem)] max-md:top-auto max-md:mb-0 max-md:mt-0 max-md:w-auto max-md:max-h-[min(28rem,calc(100dvh-8rem))]`}
         >
           <div className="border-b border-[var(--border)]/50 p-2">
             <div className="flex items-center gap-1.5 rounded-lg border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1">
@@ -172,12 +213,12 @@ export default function PersonaSelector({
                     setOpen(false);
                   }
                 }}
-                placeholder={t("Search personas...")}
+                placeholder={useChineseCopy ? "搜索学习方式…" : t("Search personas...")}
                 className="w-full bg-transparent text-[12px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
               />
             </div>
           </div>
-          <div className="max-h-[280px] overflow-y-auto py-1">
+          <div className="max-h-[280px] overflow-y-auto overscroll-y-contain touch-pan-y py-1 [-webkit-overflow-scrolling:touch]">
             {showDefaultRow && (
               <button
                 type="button"
@@ -202,7 +243,7 @@ export default function PersonaSelector({
                     {defaultLabel}
                   </div>
                   <div className="truncate text-[11px] leading-snug text-[var(--muted-foreground)]">
-                    {t("No persona — the assistant's standard behavior")}
+                    {defaultDescription}
                   </div>
                 </div>
                 {!value && (
@@ -216,6 +257,7 @@ export default function PersonaSelector({
             )}
             {filtered.map((persona) => {
               const selected = persona.name === value;
+              const copy = getPersonaCopy(persona);
               return (
                 <button
                   key={persona.name}
@@ -239,7 +281,7 @@ export default function PersonaSelector({
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate text-[12.5px] font-medium leading-snug text-[var(--foreground)]">
-                        {persona.name}
+                        {copy.label}
                       </span>
                       {persona.source === "admin" && (
                         <span className="shrink-0 rounded-full bg-[var(--muted)] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -249,7 +291,7 @@ export default function PersonaSelector({
                     </div>
                     {persona.description ? (
                       <div className="truncate text-[11px] leading-snug text-[var(--muted-foreground)]">
-                        {persona.description}
+                        {copy.description}
                       </div>
                     ) : null}
                   </div>

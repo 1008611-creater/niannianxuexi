@@ -8,6 +8,7 @@ import {
   listUsers,
   deleteUser,
   setUserRole,
+  setUserAccess,
   createUser,
   type UserRecord,
 } from "@/lib/admin-api";
@@ -56,7 +57,7 @@ export default function AdminUsersPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [query, setQuery] = useState("");
   const [confirmTarget, setConfirmTarget] = useState<{
-    kind: "delete" | "promote" | "demote";
+    kind: "delete" | "promote" | "demote" | "activate" | "deactivate";
     user: UserRecord;
   } | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -141,7 +142,7 @@ export default function AdminUsersPage() {
       if (kind === "delete") {
         await deleteUser(user.username);
         setUsers((prev) => prev.filter((u) => u.username !== user.username));
-      } else {
+      } else if (kind === "promote" || kind === "demote") {
         const newRole = kind === "promote" ? "admin" : "user";
         await setUserRole(user.username, newRole);
         setUsers((prev) =>
@@ -154,6 +155,22 @@ export default function AdminUsersPage() {
             current === user.id ? null : current,
           );
         }
+      } else {
+        const nextAccess = kind === "activate" ? "active" : "disabled";
+        await setUserAccess(user.username, nextAccess);
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.username === user.username
+              ? {
+                  ...u,
+                  access_status: nextAccess,
+                  disabled: nextAccess === "disabled",
+                  access_source: nextAccess === "active" ? "admin" : null,
+                  paid_until: null,
+                }
+              : u,
+          ),
+        );
       }
       setConfirmTarget(null);
     } catch (e) {
@@ -163,7 +180,10 @@ export default function AdminUsersPage() {
           ? e.message
           : confirmTarget.kind === "delete"
             ? t("Failed to delete user")
-            : t("Failed to update role"),
+            : confirmTarget.kind === "activate" ||
+                confirmTarget.kind === "deactivate"
+              ? t("Failed to update account access")
+              : t("Failed to update role"),
       );
     } finally {
       setConfirmBusy(false);
@@ -182,7 +202,7 @@ export default function AdminUsersPage() {
   const filteredUsers = filterUsersByQuery(users, query);
 
   return (
-    <div className="h-screen overflow-y-auto bg-[var(--background)] px-4 py-10 [scrollbar-gutter:stable]">
+    <div className="min-h-[100dvh] overflow-x-hidden bg-[var(--background)] px-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))] sm:py-10 [scrollbar-gutter:stable]">
       <div className="mx-auto max-w-3xl">
         {/* Header */}
         <div className="mb-8">
@@ -193,7 +213,7 @@ export default function AdminUsersPage() {
             <ArrowLeft size={16} />
             {t("Back")}
           </Link>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
             <div>
               <h1 className="font-serif text-xl font-semibold text-[var(--foreground)]">
                 {t("User Management")}
@@ -202,23 +222,25 @@ export default function AdminUsersPage() {
                 {t("Manage registered accounts")}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
               <button
+                type="button"
                 onClick={openCreateDialog}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm
                            border border-[var(--border)] text-[var(--foreground)]
-                           hover:bg-[var(--card)] transition-colors"
+                           hover:bg-[var(--card)] transition-colors touch-manipulation sm:min-h-0 sm:py-1.5"
               >
                 <UserPlus size={14} />
                 {t("Add user")}
               </button>
               <button
+                type="button"
                 onClick={load}
                 disabled={loading}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm
                            border border-[var(--border)] text-[var(--muted-foreground)]
                            hover:text-[var(--foreground)] hover:bg-[var(--card)]
-                           disabled:opacity-50 transition-colors"
+                           disabled:opacity-50 transition-colors touch-manipulation sm:min-h-0 sm:py-1.5"
               >
                 <RefreshCw
                   size={14}
@@ -303,9 +325,9 @@ export default function AdminUsersPage() {
               </p>
               <button
                 onClick={openCreateDialog}
-                className="mt-4 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm
+                className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm
                            border border-[var(--border)] text-[var(--foreground)]
-                           hover:bg-[var(--background)]/60 transition-colors"
+                           hover:bg-[var(--background)]/60 transition-colors touch-manipulation sm:min-h-0 sm:py-1.5"
               >
                 <UserPlus size={14} />
                 {t("Add user")}
@@ -335,9 +357,10 @@ export default function AdminUsersPage() {
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-xs text-[var(--muted-foreground)] uppercase tracking-wider">
                   <th className="px-5 py-3 font-medium">{t("Username")}</th>
-                  <th className="px-5 py-3 font-medium">{t("Role")}</th>
-                  <th className="px-5 py-3 font-medium">{t("Joined")}</th>
-                  <th className="px-5 py-3 font-medium text-right">
+                  <th className="hidden px-5 py-3 font-medium sm:table-cell">{t("Role")}</th>
+                  <th className="hidden px-5 py-3 font-medium sm:table-cell">{t("Access")}</th>
+                  <th className="hidden px-5 py-3 font-medium sm:table-cell">{t("Joined")}</th>
+                  <th className="px-3 py-3 font-medium text-right sm:px-5">
                     {t("Actions")}
                   </th>
                 </tr>
@@ -350,7 +373,7 @@ export default function AdminUsersPage() {
                   return (
                     <Fragment key={user.username}>
                       <tr className="group hover:bg-[var(--background)]/50 transition-colors">
-                        <td className="px-5 py-3">
+                        <td className="min-w-0 px-3 py-3 sm:px-5">
                           <div className="flex items-center gap-3">
                             <UserAvatar
                               username={user.username}
@@ -368,8 +391,11 @@ export default function AdminUsersPage() {
                               )}
                             </span>
                           </div>
+                          <span className="mt-1 block pl-11 text-xs text-[var(--muted-foreground)] sm:hidden">
+                            {isAdmin ? t("Admin") : t("User")} · {user.access_status === "active" ? t("Active") : user.access_status === "disabled" ? t("Disabled") : t("Pending")}
+                          </span>
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="hidden px-5 py-3 sm:table-cell">
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium
                             ${
@@ -384,11 +410,60 @@ export default function AdminUsersPage() {
                             {isAdmin ? t("Admin") : t("User")}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-[var(--muted-foreground)]">
+                        <td className="hidden px-5 py-3 sm:table-cell">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              user.access_status === "active"
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                : user.access_status === "disabled"
+                                  ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                                  : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                            }`}
+                          >
+                            {isAdmin
+                              ? t("Always active")
+                              : user.access_status === "active"
+                                ? t("Active")
+                                : user.access_status === "disabled"
+                                  ? t("Disabled")
+                                  : t("Pending")}
+                          </span>
+                        </td>
+                        <td className="hidden px-5 py-3.5 text-[var(--muted-foreground)] sm:table-cell">
                           {formatDate(user.created_at, lang)}
                         </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="px-2 py-3.5 sm:px-5">
+                          <div className="flex items-center justify-end gap-0.5 sm:gap-1.5">
+                            {!isAdmin && (
+                              <button
+                                onClick={() =>
+                                  setConfirmTarget({
+                                    kind:
+                                      user.access_status === "active"
+                                        ? "deactivate"
+                                        : "activate",
+                                    user,
+                                  })
+                                }
+                                disabled={isSelf}
+                                title={
+                                  isSelf
+                                    ? t("Cannot change your own access")
+                                    : user.access_status === "active"
+                                      ? t("Disable access")
+                                      : t("Activate access")
+                                }
+                                className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-xs font-medium transition-colors touch-manipulation disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-0 sm:px-2 sm:py-1 ${
+                                  user.access_status === "active"
+                                    ? "text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                                    : "text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                                }`}
+                              >
+                                {user.access_status === "active"
+                                  ? t("Disable")
+                                  : t("Activate")}
+                              </button>
+                            )}
                             {canManageAssignments && (
                               <button
                                 onClick={() =>
@@ -397,9 +472,9 @@ export default function AdminUsersPage() {
                                   )
                                 }
                                 title={t("Manage assignments")}
-                                className="rounded-lg p-1.5 text-[var(--muted-foreground)]
-                                         hover:bg-[var(--background)] hover:text-[var(--foreground)]
-                                         transition-colors"
+                                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5 text-[var(--muted-foreground)]
+                                          hover:bg-[var(--background)] hover:text-[var(--foreground)]
+                                          transition-colors touch-manipulation sm:min-h-0 sm:min-w-0"
                               >
                                 <SlidersHorizontal size={15} />
                               </button>
@@ -419,9 +494,9 @@ export default function AdminUsersPage() {
                                     ? t("Demote to user")
                                     : t("Promote to admin")
                               }
-                              className="rounded-lg p-1.5 text-[var(--muted-foreground)]
+                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5 text-[var(--muted-foreground)]
                                        hover:bg-[var(--background)] hover:text-[var(--foreground)]
-                                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors touch-manipulation sm:min-h-0 sm:min-w-0"
                             >
                               {user.role === "admin" ? (
                                 <ShieldOff size={15} />
@@ -441,9 +516,9 @@ export default function AdminUsersPage() {
                                       username: user.username,
                                     })
                               }
-                              className="rounded-lg p-1.5 text-[var(--muted-foreground)]
+                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5 text-[var(--muted-foreground)]
                                        hover:bg-red-500/10 hover:text-red-500
-                                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors touch-manipulation sm:min-h-0 sm:min-w-0"
                             >
                               <Trash2 size={15} />
                             </button>
@@ -452,7 +527,7 @@ export default function AdminUsersPage() {
                       </tr>
                       {canManageAssignments && expandedUserId === user.id && (
                         <tr>
-                          <td colSpan={4} className="p-0">
+                          <td colSpan={5} className="p-0">
                             <GrantEditor key={user.id} userId={user.id} />
                           </td>
                         </tr>
@@ -477,7 +552,11 @@ export default function AdminUsersPage() {
             ? t("Delete user")
             : confirmTarget?.kind === "promote"
               ? t("Promote to admin")
-              : t("Demote to user")
+              : confirmTarget?.kind === "demote"
+                ? t("Demote to user")
+                : confirmTarget?.kind === "activate"
+                  ? t("Activate account")
+                  : t("Disable account")
         }
         tone={confirmTarget?.kind === "delete" ? "danger" : "default"}
         confirmLabel={
@@ -485,14 +564,22 @@ export default function AdminUsersPage() {
             ? t("Delete user")
             : confirmTarget?.kind === "promote"
               ? t("Promote")
-              : t("Demote")
+              : confirmTarget?.kind === "demote"
+                ? t("Demote")
+                : confirmTarget?.kind === "activate"
+                  ? t("Activate")
+                  : t("Disable")
         }
         busyLabel={
           confirmTarget?.kind === "delete"
             ? t("Deleting…")
             : confirmTarget?.kind === "promote"
               ? t("Promoting…")
-              : t("Demoting…")
+              : confirmTarget?.kind === "demote"
+                ? t("Demoting…")
+                : confirmTarget?.kind === "activate"
+                  ? t("Activating…")
+                  : t("Disabling…")
         }
         busy={confirmBusy}
         onConfirm={handleConfirmAction}
@@ -532,9 +619,13 @@ export default function AdminUsersPage() {
                   ? t(
                       "Admins can manage users and assignments, and work in the shared main workspace.",
                     )
-                  : t(
+                  : confirmTarget.kind === "demote"
+                    ? t(
                       "They will lose access to the admin area and switch to their own assigned workspace.",
-                    )}
+                    )
+                    : confirmTarget.kind === "activate"
+                      ? t("This account will be allowed to use the product.")
+                      : t("This account will immediately lose access to the product.")}
             </p>
           </>
         )}
@@ -560,7 +651,7 @@ export default function AdminUsersPage() {
                 type="button"
                 onClick={closeCreateDialog}
                 disabled={createSubmitting}
-                className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)] disabled:opacity-40"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)] disabled:opacity-40 touch-manipulation sm:min-h-0 sm:min-w-0"
                 aria-label={t("Close")}
               >
                 <X size={16} />
@@ -601,14 +692,14 @@ export default function AdminUsersPage() {
                 type="button"
                 onClick={closeCreateDialog}
                 disabled={createSubmitting}
-                className="rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-40"
+                className="min-h-11 rounded-lg px-3 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-40 touch-manipulation"
               >
                 {t("Cancel")}
               </button>
               <button
                 type="submit"
                 disabled={createSubmitting}
-                className="rounded-lg bg-[var(--foreground)] px-3 py-1.5 text-sm font-medium text-[var(--background)] hover:opacity-90 disabled:opacity-40"
+                className="min-h-11 rounded-lg bg-[var(--foreground)] px-3 text-sm font-medium text-[var(--background)] hover:opacity-90 disabled:opacity-40 touch-manipulation"
               >
                 {createSubmitting ? t("Creating…") : t("Create")}
               </button>

@@ -337,6 +337,7 @@ from deeptutor.api.routers import (
     agent_config,
     attachments,
     auth,
+    billing,
     book,
     capabilities_settings,
     chat,
@@ -344,6 +345,7 @@ from deeptutor.api.routers import (
     dashboard,
     imports,
     knowledge,
+    learner_profile,
     mastery_path,
     mcp_settings,
     memory,
@@ -354,6 +356,7 @@ from deeptutor.api.routers import (
     question,
     question_notebook,
     quiz_judge,
+    realtime,
     sessions,
     settings,
     skills,
@@ -374,9 +377,21 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 
 # All other routers require a valid session when AUTH_ENABLED=true.
 # require_auth is a no-op when AUTH_ENABLED=false, so this is safe for local use.
-from deeptutor.api.routers.auth import require_admin, require_auth  # noqa: E402
+from deeptutor.api.routers.auth import (  # noqa: E402
+    require_active_access,
+    require_admin,
+)
 
-_auth = [Depends(require_auth)]
+_auth = [Depends(require_active_access)]
+
+# Phase-A commercial access: LDXP remains the external card distributor; the
+# application owns voucher redemption, membership state, and the quota ledger.
+app.include_router(
+    billing.router,
+    prefix="/api/v1/billing",
+    tags=["billing"],
+)
+
 # Partner data is anchored at the admin workspace (data/partners) and shared
 # process-wide, so management is admin-gated in multi-user deployments
 # (single-user local runs are implicitly admin — no behaviour change there).
@@ -405,6 +420,11 @@ app.include_router(
     prefix="/api/v1/learning",
     tags=["mastery-path"],
     dependencies=_auth,
+)
+app.include_router(
+    learner_profile.router,
+    prefix="/api/v1/learning-profile",
+    tags=["learning-profile"],
 )
 app.include_router(
     co_writer.router, prefix="/api/v1/co_writer", tags=["co_writer"], dependencies=_auth
@@ -468,6 +488,9 @@ app.include_router(
 app.include_router(tools_router.router, prefix="/api/v1/tools", tags=["tools"], dependencies=_auth)
 app.include_router(system.router, prefix="/api/v1/system", tags=["system"], dependencies=_auth)
 app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"], dependencies=_auth)
+# Realtime upgrades authenticate inside the WebSocket handler so cookies and
+# access status are checked before the connection is accepted.
+app.include_router(realtime.router, prefix="/api/v1/realtime", tags=["realtime"])
 app.include_router(
     plugins_api.router, prefix="/api/v1/plugins", tags=["plugins"], dependencies=_auth
 )

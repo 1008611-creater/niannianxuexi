@@ -120,9 +120,10 @@ class ImagegenTool(BaseTool):
         return ToolDefinition(
             name="imagegen",
             description=(
-                "Generate one or more images from a text description using the "
-                "configured image-generation model. Write a vivid, self-contained "
-                "`prompt` describing the subject, style, and composition. Generated "
+                "Generate one or more images using the configured image-generation "
+                "model. Write a vivid, self-contained `prompt` describing the subject, "
+                "style, and composition. When RunningHub Image2 is active, the configured "
+                "public reference image URLs are used automatically. Generated "
                 "images are saved and shown to the user automatically as cards — "
                 "after calling, refer to each image by its exact filename in your reply."
             ),
