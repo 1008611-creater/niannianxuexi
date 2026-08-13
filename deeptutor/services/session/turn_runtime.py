@@ -200,7 +200,9 @@ def _request_snapshot_metadata(
         "language": str(payload.get("language", "en") or "en"),
     }
     template_id = config.get("learning_template_id") if isinstance(config, dict) else None
-    template_revision = config.get("learning_template_revision") if isinstance(config, dict) else None
+    template_revision = (
+        config.get("learning_template_revision") if isinstance(config, dict) else None
+    )
     if template_id:
         snapshot["learningTemplateId"] = str(template_id)
         if template_revision is not None:
@@ -449,7 +451,9 @@ def _append_learning_mode_context(
     policy = teaching_policy(mode, language=language)
     template = template_from_config(config)
     template_text = template_context(template, learning_mode=mode, language=language)
-    additions = "\n".join(part for part in (template_text, policy if not template_text else "") if part)
+    additions = "\n".join(
+        part for part in (template_text, policy if not template_text else "") if part
+    )
     return (memory_context + "\n" + additions).strip() if additions else memory_context
 
 
