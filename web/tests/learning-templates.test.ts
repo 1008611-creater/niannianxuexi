@@ -31,6 +31,8 @@ test("the student homepage owns the entry without creating a template center", a
   assert.match(page, /handleJuniorMathAction/);
   assert.match(page, /learning_mode: pendingLearningMode/);
   assert.match(page, /learningMode=\{pendingLearningMode \?\? undefined\}/);
+  assert.match(page, /action === "photo"/);
+  assert.match(page, /niannian-camera-input/);
   const realtimeTutor = await readFile("components/space/RealtimeTutor.tsx", "utf8");
   const realtimeHook = await readFile("hooks/useRealtimeTutor.ts", "utf8");
   assert.match(realtimeTutor, /learningMode\?: LearningMode/);

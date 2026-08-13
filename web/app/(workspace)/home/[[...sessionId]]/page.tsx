@@ -625,6 +625,13 @@ export default function ChatPage() {
       }
       setPendingLearningMode(LEARNING_MODE_FOR_ACTION[action]);
       setPendingLearningTemplateId(JUNIOR_MATH_BRIDGE_TEMPLATE.id);
+      if (action === "photo") {
+        // Keep the prepared template on this session, then open the native
+        // picker directly from the student's click so the first action is
+        // immediately useful on desktop and mobile.
+        document.getElementById("niannian-camera-input")?.click();
+        return;
+      }
       handlePrefillComposer(prompts[action]);
       window.requestAnimationFrame(() => {
         document.getElementById("niannian-composer")?.scrollIntoView({

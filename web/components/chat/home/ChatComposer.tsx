@@ -768,6 +768,7 @@ export default memo(function ChatComposer({
           />
 
           <input
+            id="niannian-camera-input"
             ref={cameraInputRef}
             type="file"
             accept="image/*"
