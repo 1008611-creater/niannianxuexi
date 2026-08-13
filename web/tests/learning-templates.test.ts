@@ -35,10 +35,14 @@ test("the student homepage owns the entry without creating a template center", a
   assert.match(page, /niannian-camera-input/);
   const realtimeTutor = await readFile("components/space/RealtimeTutor.tsx", "utf8");
   const realtimeHook = await readFile("hooks/useRealtimeTutor.ts", "utf8");
+  const composer = await readFile("components/chat/home/ChatComposer.tsx", "utf8");
   assert.match(realtimeTutor, /learningMode\?: LearningMode/);
   assert.match(realtimeTutor, /learningMode(?:, learningTemplateId)?/);
   assert.match(realtimeHook, /learning_mode = options\.learningMode/);
   assert.match(realtimeHook, /learning_template_id = options\.learningTemplateId/);
+  assert.match(composer, /id="niannian-camera-input"/);
+  assert.match(composer, /onAddFiles\(\[photo\]\)/);
+  assert.match(composer, /请先识别题目并问我做到哪一步/);
   assert.doesNotMatch(page, /模板中心|课程包导航/);
   assert.match(card, /data-testid="junior-math-bridge"/);
   assert.match(card, /拍题问念念/);
